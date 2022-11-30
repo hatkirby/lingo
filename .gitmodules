@@ -1,0 +1,3 @@
+[submodule "vendor/verbly"]
+	path = vendor/verbly
+	url = https://github.com/hatkirby/verbly.git
