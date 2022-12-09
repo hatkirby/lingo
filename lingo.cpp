@@ -148,6 +148,8 @@ private:
             } else {
               std::cout << "▪️";
             }
+          } else {
+            std::cout << "▪️";
           }
         }
         std::cout << std::endl;
@@ -179,7 +181,7 @@ private:
                         verbly::form::id)))));
                   break;
                 }
-                default: break; // Not supposed yet.
+                default: break; // Not supported yet.
               }
               break;
             }
@@ -189,7 +191,7 @@ private:
                   forwardFilter &= (verbly::word::antonyms %= wordFilter);
                   break;
                 }
-                default: break; // Not supposed yet.
+                default: break; // Not supported yet.
               }
               break;
             }
@@ -199,7 +201,7 @@ private:
                   forwardFilter &= (verbly::notion::causes %= wordFilter);
                   break;
                 }
-                default: break; // Not supposed yet.
+                default: break; // Not supported yet.
               }
               break;
             }
@@ -217,7 +219,7 @@ private:
                   forwardFilter &= (verbly::notion::partMeronyms %= wordFilter);
                   break;
                 }
-                default: break; // Not supposed yet.
+                default: break; // Not supported yet.
               }
               break;
             }
@@ -235,7 +237,7 @@ private:
                   forwardFilter &= (verbly::notion::partHolonyms %= wordFilter);
                   break;
                 }
-                default: break; // Not supposed yet.
+                default: break; // Not supported yet.
               }
               break;
             }
@@ -249,7 +251,7 @@ private:
                   forwardFilter &= (verbly::pronunciation::rhymes %= wordFilter);
                   break;
                 }
-                default: break; // Not supposed yet.
+                default: break; // Not supported yet.
               }
               break;
             }
@@ -269,11 +271,11 @@ private:
                         verbly::form::id)));
                   break;
                 }
-                default: break; // Not supposed yet.
+                default: break; // Not supported yet.
               }
               break;
             }
-            default: break; // Not supposed yet.
+            default: break; // Not supported yet.
           }
         }
 
@@ -302,7 +304,7 @@ private:
                           verbly::form::id)))));
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -312,7 +314,7 @@ private:
                     questionFilter = (verbly::word::antonyms %= solution);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -322,7 +324,7 @@ private:
                     questionFilter = (verbly::notion::effects %= solution);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -344,7 +346,7 @@ private:
                     questionFilter = (verbly::notion::partMeronyms %= solution);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -366,7 +368,7 @@ private:
                     //questionFilter &= !(verbly::notion::words %= solution);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -380,7 +382,7 @@ private:
                     questionFilter = (verbly::form::merographs %= (verbly::form::length >= 4 && (verbly::form::holographs %= solution)));
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -400,11 +402,11 @@ private:
                         verbly::form::id)));
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
-              default: break; // Not supposed yet.
+              default: break; // Not supported yet.
             }
             verbly::form questionPart = database_->forms(questionFilter && cleanFilter).first();
             msg_stream << COLOUR_EMOJIS[*colour] << " " << questionPart.getText() << std::endl;
@@ -427,7 +429,7 @@ private:
                           verbly::form::id)))));
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -437,7 +439,7 @@ private:
                     admissable &= (verbly::word::antonyms %= addedClause);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -447,7 +449,7 @@ private:
                     admissable &= (verbly::notion::causes %= addedClause);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -465,7 +467,7 @@ private:
                     admissable &= (verbly::notion::partMeronyms %= addedClause);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -483,7 +485,7 @@ private:
                     admissable &= (verbly::notion::partHolonyms %= addedClause);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -497,7 +499,7 @@ private:
                     admissable &= (verbly::pronunciation::rhymes %= addedClause);
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
@@ -517,23 +519,29 @@ private:
                           verbly::form::id)));
                     break;
                   }
-                  default: break; // Not supposed yet.
+                  default: break; // Not supported yet.
                 }
                 break;
               }
-              default: break; // Not supposed yet.
+              default: break; // Not supported yet.
             }
           } else {
             msg_stream << "▪️" << std::endl;
           }
         }
-        msg_stream << "(" << solution.getText().size() << ")";
+        std::string spaceless = solution.getText();
+        while (spaceless.find(" ") != std::string::npos)
+        {
+          spaceless.erase(spaceless.find(" "), 1);
+        }
+
+        msg_stream << "(" << spaceless.size() << ")";
 
         std::string message_text = msg_stream.str();
         std::cout << message_text << std::endl << std::endl << solution.getText() << std::endl;
 
         std::vector<verbly::form> admissableResults = database_->forms(admissable).all();
-        if (admissableResults.size() <= 5)
+        if (admissableResults.size() <= (hints == 1 ? 2 : 5))
         {
           dpp::message message(channel, message_text);
           bot_->message_create(message, [this, &solution](const dpp::confirmation_callback_t& userdata) {
