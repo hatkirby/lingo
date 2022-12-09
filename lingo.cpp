@@ -111,7 +111,6 @@ private:
     std::set<std::tuple<Height, Colour>> filters = {
       {kTop, kPurple},
       {kTop, kWhite},
-      {kTop, kYellow},
       {kTop, kRed},
       {kTop, kBlue},
       {kMiddle, kYellow},
