@@ -13,6 +13,7 @@
 #include <optional>
 #include <map>
 #include <array>
+#include "imagenet.h"
 
 #define ENABLE_BOT
 
@@ -31,6 +32,7 @@ enum Colour {
   kPurple,
   kBrown,
   kYellow,
+  kGreen,
   kColourCount
 };
 
@@ -41,7 +43,8 @@ const std::string COLOUR_EMOJIS[kColourCount] = {
   "🟦",
   "🟪",
   "🟫",
-  "🟨"
+  "🟨",
+  "🟩"
 };
 
 const std::string NONE_EMOTE = "<:xx:1047267830535557180>";
@@ -53,7 +56,8 @@ const std::string COLOUR_EMOTES[kColourCount] = {
   "<:bl:1047262138202325042>",
   "<:pr:1047262146926489691>",
   "<:bn:1047262139187998790>",
-  "<:yw:1047262152781737986>"
+  "<:yw:1047262152781737986>",
+  "<:gn:1047262141914304633>"
 };
 
 enum FilterDirection {
@@ -195,6 +199,50 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
       }
       break;
     }
+    case kGreen: {
+      if (filter_direction == kTowardSolution)
+      {
+        verbly::filter whitelist =
+          (verbly::notion::wnid == 109287968)    // Geological formations
+          || (verbly::notion::wnid == 109208496) // Asterisms (collections of stars)
+          || (verbly::notion::wnid == 109239740) // Celestial bodies
+          || (verbly::notion::wnid == 109277686) // Exterrestrial objects (comets and meteroids)
+          || (verbly::notion::wnid == 109403211) // Radiators (supposedly natural radiators but actually these are just pictures of radiators)
+          || (verbly::notion::wnid == 109416076) // Rocks
+          || (verbly::notion::wnid == 105442131) // Chromosomes
+          || (verbly::notion::wnid == 100324978) // Tightrope walking
+          || (verbly::notion::wnid == 100326094) // Rock climbing
+          || (verbly::notion::wnid == 100433458) // Contact sports
+          || (verbly::notion::wnid == 100433802) // Gymnastics
+          || (verbly::notion::wnid == 100439826) // Track and field
+          || (verbly::notion::wnid == 100440747) // Skiing
+          || (verbly::notion::wnid == 100441824) // Water sport
+          || (verbly::notion::wnid == 100445351) // Rowing
+          || (verbly::notion::wnid == 100446980) // Archery
+            // TODO: add more sports
+          || (verbly::notion::wnid == 100021939) // Artifacts
+          || (verbly::notion::wnid == 101471682) // Vertebrates
+            ;
+
+        verbly::filter blacklist =
+          (verbly::notion::wnid == 106883725) // swastika
+          || (verbly::notion::wnid == 104416901) // tetraskele
+          || (verbly::notion::wnid == 102512053) // fish
+          || (verbly::notion::wnid == 103575691) // instrument of execution
+          || (verbly::notion::wnid == 103829563) // noose
+          || (verbly::notion::wnid == 103663910) // life support
+            ;
+
+        return subfilter
+          && (verbly::notion::fullHypernyms %= whitelist)
+          && !(verbly::notion::fullHypernyms %= blacklist)
+          && (verbly::notion::partOfSpeech == verbly::part_of_speech::noun)
+          && (verbly::notion::numOfImages >= 1);
+      } else {
+        return (verbly::form::text == "picture");
+      }
+      break;
+    }
     default: break; // Not supported yet.
   }
   return {};
@@ -255,6 +303,7 @@ public:
     dpp::snowflake channel(config["discord_channel"].as<uint64_t>());
 
     database_ = std::make_unique<verbly::database>(config["verbly_datafile"].as<std::string>());
+    imagenet_ = std::make_unique<imagenet>(config["imagenet"].as<std::string>());
 
     for (;;)
     {
@@ -278,10 +327,12 @@ private:
       {kMiddle, kRed},
       {kMiddle, kBlue},
       {kMiddle, kPurple},
+      {kMiddle, kGreen},
       {kBottom, kWhite},
       {kBottom, kBlack},
       {kBottom, kRed},
       {kBottom, kBlue},
+      {kBottom, kGreen},
     };
 
     std::set<std::tuple<Height, Colour>> expensive_hints = {
@@ -313,6 +364,7 @@ private:
         int non_purple_uses = 0;
         int expensive_uses = 0;
         int moderate_uses = 0;
+        int green_uses = 0;
         std::array<std::optional<Colour>, kHeightCount> parts;
         for (int height = 0; height < static_cast<int>(kHeightCount); height++) {
           if (std::bernoulli_distribution(0.5)(rng_)) {
@@ -333,6 +385,10 @@ private:
               if (moderate_hints.count(combo))
               {
                 moderate_uses++;
+              }
+              if (colour == kGreen)
+              {
+                green_uses++;
               }
 
               std::cout << COLOUR_EMOJIS[colour];
@@ -357,6 +413,11 @@ private:
         }
         if (expensive_uses == 1 && moderate_uses > 0) {
           std::cout << "Moderate hints can't be combined with an expensive hint." << std::endl;
+          continue;
+        }
+        if (green_uses != 1)
+        {
+          std::cout << "Too many green hints." << std::endl;
           continue;
         }
 
@@ -401,10 +462,24 @@ private:
         std::cout << message_text << std::endl << std::endl << solution.getText() << std::endl;
 
         std::vector<verbly::form> admissibleResults = database_->forms(admissible, {}, 10).all();
-        if (admissibleResults.size() <= (hints == 1 ? 2 : 5))
+        if (green_uses > 0 || (admissibleResults.size() <= (hints == 1 ? 2 : 5)))
         {
 #ifdef ENABLE_BOT
           dpp::message message(channel, message_text);
+
+          if (green_uses > 0)
+          {
+            verbly::notion notion = database_->notions(
+              (verbly::notion::numOfImages > 1) && solution).first();
+            auto [image, extension] = imagenet_->getImageForNotion(notion.getId(), rng_);
+            if (image.empty())
+            {
+              throw std::runtime_error("Could not find image for green hint.");
+            }
+
+            message.add_file(std::string("SPOILER_image.") + extension, image);
+          }
+
           bot_->message_create(message, [this, &solution](const dpp::confirmation_callback_t& userdata) {
             const auto& posted_msg = std::get<dpp::message>(userdata.value);
             std::lock_guard answer_lock(answers_mutex_);
@@ -432,6 +507,7 @@ private:
   std::mt19937& rng_;
   std::unique_ptr<dpp::cluster> bot_;
   std::unique_ptr<verbly::database> database_;
+  std::unique_ptr<imagenet> imagenet_;
   std::map<uint64_t, std::string> answer_by_message_;
   std::mutex answers_mutex_;
 };

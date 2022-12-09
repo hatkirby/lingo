@@ -7,19 +7,21 @@ find_package(PkgConfig)
 pkg_check_modules(yaml-cpp yaml-cpp REQUIRED)
 pkg_check_modules(dpp dpp REQUIRED)
 
+add_subdirectory(vendor/curlcpp)
 add_subdirectory(vendor/verbly)
 
 include_directories(
   ${dpp_INCLUDE_DIRS}
   vendor/verbly/lib
   ${yaml-cpp_INCLUDE_DIRS}
+  ${CURLCPP_SOURCE_DIR}/include
   vendor/json)
 
 link_directories(
   ${dpp_LIBRARY_DIRS}
   ${yaml-cpp_LIBRARY_DIRS})
 
-add_executable(lingo lingo.cpp)
+add_executable(lingo lingo.cpp imagenet.cpp)
 set_property(TARGET lingo PROPERTY CXX_STANDARD 17)
 set_property(TARGET lingo PROPERTY CXX_STANDARD_REQUIRED ON)
-target_link_libraries(lingo verbly ${dpp_LIBRARIES} ${yaml-cpp_LIBRARIES})
+target_link_libraries(lingo verbly ${dpp_LIBRARIES} ${yaml-cpp_LIBRARIES} curlcpp curl)
