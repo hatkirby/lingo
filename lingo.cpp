@@ -44,6 +44,18 @@ const std::string COLOUR_EMOJIS[kColourCount] = {
   "🟨"
 };
 
+const std::string NONE_EMOTE = "<:xx:1047267830535557180>";
+
+const std::string COLOUR_EMOTES[kColourCount] = {
+  "<:wt:1047262151032713267>",
+  "<:bk:1047262137082445965>",
+  "<:rd:1047262147933122560>",
+  "<:bl:1047262138202325042>",
+  "<:pr:1047262146926489691>",
+  "<:bn:1047262139187998790>",
+  "<:yw:1047262152781737986>"
+};
+
 enum FilterDirection {
   kTowardSolution,
   kTowardQuestion
@@ -370,11 +382,11 @@ private:
           if (colour.has_value()) {
             verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
             verbly::form questionPart = database_->forms(questionFilter && cleanFilter).first();
-            msg_stream << COLOUR_EMOJIS[*colour] << " " << questionPart.getText() << std::endl;
+            msg_stream << COLOUR_EMOTES[*colour] << " " << questionPart.getText() << std::endl;
 
             admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
           } else {
-            msg_stream << "▪️" << std::endl;
+            msg_stream << NONE_EMOTE << std::endl;
           }
         }
         std::string spaceless = solution.getText();
