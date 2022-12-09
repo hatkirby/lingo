@@ -334,7 +334,7 @@ private:
         std::string message_text = msg_stream.str();
         std::cout << message_text << std::endl << std::endl << solution.getText() << std::endl;
 
-        std::vector<verbly::form> admissibleResults = database_->forms(admissible).all();
+        std::vector<verbly::form> admissibleResults = database_->forms(admissible, {}, 10).all();
         if (admissibleResults.size() <= (hints == 1 ? 2 : 5))
         {
 #ifdef ENABLE_BOT
