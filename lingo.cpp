@@ -272,6 +272,19 @@ private:
       {kBottom, kBlue},
     };
 
+    std::set<std::tuple<Height, Colour>> expensive_hints = {
+      {kTop, kPurple},
+      {kMiddle, kPurple},
+    };
+
+    std::set<std::tuple<Height, Colour>> moderate_hints = {
+      {kTop, kRed},
+      {kTop, kBlue},
+      {kMiddle, kRed},
+      {kMiddle, kBlue},
+      {kBottom, kBlack},
+    };
+
     verbly::filter wordFilter = (verbly::form::proper == false);
 
     verbly::filter cleanFilter =
@@ -285,13 +298,31 @@ private:
       try
       {
         int hints = 0;
+        int non_purple_uses = 0;
+        int expensive_uses = 0;
+        int moderate_uses = 0;
         std::array<std::optional<Colour>, kHeightCount> parts;
         for (int height = 0; height < static_cast<int>(kHeightCount); height++) {
           if (std::bernoulli_distribution(0.5)(rng_)) {
             int colour = std::uniform_int_distribution<int>(0, static_cast<int>(kColourCount)-1)(rng_);
-            if (filters.count({static_cast<Height>(height), static_cast<Colour>(colour)})) {
+            auto combo = std::make_tuple<Height, Colour>(static_cast<Height>(height), static_cast<Colour>(colour));
+            if (filters.count(combo)) {
               parts[static_cast<Height>(height)] = static_cast<Colour>(colour);
+
               hints++;
+              if (colour != kPurple)
+              {
+                non_purple_uses++;
+              }
+              if (expensive_hints.count(combo))
+              {
+                expensive_uses++;
+              }
+              if (moderate_hints.count(combo))
+              {
+                moderate_uses++;
+              }
+
               std::cout << COLOUR_EMOJIS[colour];
             } else {
               std::cout << "▪️";
@@ -302,7 +333,18 @@ private:
         }
         std::cout << std::endl;
 
-        if (hints < 1) {
+        if (non_purple_uses < 1)
+        {
+          std::cout << "No hints (or only purple hints)." << std::endl;
+          continue;
+        }
+        if (expensive_uses > 1)
+        {
+          std::cout << "Too many expensive hints." << std::endl;
+          continue;
+        }
+        if (expensive_uses == 1 && moderate_uses > 0) {
+          std::cout << "Moderate hints can't be combined with an expensive hint." << std::endl;
           continue;
         }
 
