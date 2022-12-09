@@ -70,7 +70,7 @@ public:
 
     bot_->on_message_create([this](const dpp::message_create_t& event) {
       std::lock_guard answer_lock(answers_mutex_);
-      if (answer_by_message_.count(event.msg.message_reference.message_id))
+      if (answer_by_message_.count(static_cast<uint64_t>(event.msg.message_reference.message_id)))
       {
         std::string canonical_answer = hatkirby::lowercase(answer_by_message_[event.msg.message_reference.message_id]);
         std::string canonical_attempt = hatkirby::lowercase(event.msg.content);
