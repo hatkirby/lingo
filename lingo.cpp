@@ -415,7 +415,7 @@ private:
           std::cout << "Moderate hints can't be combined with an expensive hint." << std::endl;
           continue;
         }
-        if (green_uses != 1)
+        if (green_uses > 1)
         {
           std::cout << "Too many green hints." << std::endl;
           continue;
