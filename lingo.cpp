@@ -79,6 +79,7 @@ public:
           canonical_attempt.erase(canonical_attempt.find("||"), 2);
         }
 
+        std::cout << "\"" << canonical_attempt << "\"" << std::endl;
         if (canonical_attempt == canonical_answer)
         {
           bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "✅");
@@ -132,6 +133,7 @@ private:
     bool generated = false;
     while (!generated)
     {
+      std::cout << "Generating... " << std::endl;
       try
       {
         int hints = 0;
@@ -142,11 +144,15 @@ private:
             if (filters.count({static_cast<Height>(height), static_cast<Colour>(colour)})) {
               parts[static_cast<Height>(height)] = static_cast<Colour>(colour);
               hints++;
+              std::cout << COLOUR_EMOJIS[colour];
+            } else {
+              std::cout << "▪️";
             }
           }
         }
+        std::cout << std::endl;
 
-        if (hints < 2) {
+        if (hints < 1) {
           continue;
         }
 
@@ -272,6 +278,7 @@ private:
         }
 
         verbly::form solution = database_->forms(forwardFilter).first();
+        verbly::filter admissable = cleanFilter && (verbly::form::proper == false);
 
         std::ostringstream msg_stream;
         for (int i=0; i<static_cast<int>(kHeightCount); i++) {
@@ -401,6 +408,121 @@ private:
             }
             verbly::form questionPart = database_->forms(questionFilter && cleanFilter).first();
             msg_stream << COLOUR_EMOJIS[*colour] << " " << questionPart.getText() << std::endl;
+
+            verbly::filter addedClause = (verbly::form::text == questionPart.getText());
+
+            switch (*colour) {
+              case kWhite: {
+                switch (height) {
+                  case kBottom: {
+                    admissable &= (verbly::word::synonyms %= addedClause);
+                    break;
+                  }
+                  case kTop: {
+                    admissable &= (verbly::form::pronunciations %=
+                      verbly::filter("homophones", false,
+                        (verbly::pronunciation::forms %= (addedClause && verbly::filter(
+                          verbly::form::id,
+                          verbly::filter::comparison::field_does_not_equal,
+                          verbly::form::id)))));
+                    break;
+                  }
+                  default: break; // Not supposed yet.
+                }
+                break;
+              }
+              case kBlack: {
+                switch (height) {
+                  case kBottom: {
+                    admissable &= (verbly::word::antonyms %= addedClause);
+                    break;
+                  }
+                  default: break; // Not supposed yet.
+                }
+                break;
+              }
+              case kBrown: {
+                switch (height) {
+                  case kBottom: {
+                    admissable &= (verbly::notion::causes %= addedClause);
+                    break;
+                  }
+                  default: break; // Not supposed yet.
+                }
+                break;
+              }
+              case kRed: {
+                switch (height) {
+                  case kTop: {
+                    admissable &= (verbly::pronunciation::holophones %= addedClause);
+                    break;
+                  }
+                  case kMiddle: {
+                    admissable &= (verbly::form::holographs %= addedClause);
+                    break;
+                  }
+                  case kBottom: {
+                    admissable &= (verbly::notion::partMeronyms %= addedClause);
+                    break;
+                  }
+                  default: break; // Not supposed yet.
+                }
+                break;
+              }
+              case kBlue: {
+                switch (height) {
+                  case kTop: {
+                    admissable &= (verbly::pronunciation::merophones %= addedClause);
+                    break;
+                  }
+                  case kMiddle: {
+                    admissable &= (verbly::form::merographs %= addedClause);
+                    break;
+                  }
+                  case kBottom: {
+                    admissable &= (verbly::notion::partHolonyms %= addedClause);
+                    break;
+                  }
+                  default: break; // Not supposed yet.
+                }
+                break;
+              }
+              case kPurple: {
+                switch (height) {
+                  case kMiddle: {
+                    admissable &= (verbly::form::merographs %= (verbly::form::length >= 4 && (verbly::form::holographs %= addedClause)));
+                    break;
+                  }
+                  case kTop: {
+                    admissable &= (verbly::pronunciation::rhymes %= addedClause);
+                    break;
+                  }
+                  default: break; // Not supposed yet.
+                }
+                break;
+              }
+              case kYellow: {
+                switch (height) {
+                  case kTop: {
+                    admissable &= (verbly::pronunciation::anaphones %= (addedClause && verbly::filter(
+                          verbly::pronunciation::id,
+                          verbly::filter::comparison::field_does_not_equal,
+                          verbly::pronunciation::id)));
+                    break;
+                  }
+                  case kMiddle: {
+                    admissable &= (verbly::form::anagrams %= (addedClause && verbly::filter(
+                          verbly::form::id,
+                          verbly::filter::comparison::field_does_not_equal,
+                          verbly::form::id)));
+                    break;
+                  }
+                  default: break; // Not supposed yet.
+                }
+                break;
+              }
+              default: break; // Not supposed yet.
+            }
           } else {
             msg_stream << "▪️" << std::endl;
           }
@@ -410,23 +532,30 @@ private:
         std::string message_text = msg_stream.str();
         std::cout << message_text << std::endl << std::endl << solution.getText() << std::endl;
 
-        dpp::message message(channel, message_text);
-        bot_->message_create(message, [this, &solution](const dpp::confirmation_callback_t& userdata) {
-          const auto& posted_msg = std::get<dpp::message>(userdata.value);
-          std::lock_guard answer_lock(answers_mutex_);
-          if (answer_by_message_.size() > 3000)
-          {
-            answer_by_message_.clear();
-          }
-          answer_by_message_[posted_msg.id] = solution.getText();
-        });
+        std::vector<verbly::form> admissableResults = database_->forms(admissable).all();
+        if (admissableResults.size() <= 5)
+        {
+          dpp::message message(channel, message_text);
+          bot_->message_create(message, [this, &solution](const dpp::confirmation_callback_t& userdata) {
+            const auto& posted_msg = std::get<dpp::message>(userdata.value);
+            std::lock_guard answer_lock(answers_mutex_);
+            if (answer_by_message_.size() > 3000)
+            {
+              answer_by_message_.clear();
+            }
+            answer_by_message_[posted_msg.id] = solution.getText();
+          });
 
-        generated = true;
+          generated = true;
+        } else {
+          std::cout << "Too many (" << admissableResults.size() << ") results." << std::endl;
+        }
       } catch (const std::exception& ex) {
         std::cout << ex.what() << std::endl;
       }
 
-      std::this_thread::sleep_for(std::chrono::minutes(1));
+      std::cout << "Waiting five seconds then trying again..." << std::endl;
+      std::this_thread::sleep_for(std::chrono::seconds(5));
     }
   }
 
