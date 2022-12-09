@@ -14,6 +14,8 @@
 #include <map>
 #include <array>
 
+#define ENABLE_BOT
+
 enum Height {
   kTop,
   kMiddle,
@@ -42,6 +44,138 @@ const std::string COLOUR_EMOJIS[kColourCount] = {
   "🟨"
 };
 
+enum FilterDirection {
+  kTowardSolution,
+  kTowardQuestion
+};
+
+verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour colour, FilterDirection filter_direction)
+{
+  switch (colour) {
+    case kWhite: {
+      switch (height) {
+        case kBottom: {
+          return (verbly::word::synonyms %= subfilter);
+        }
+        case kTop: {
+          return (verbly::form::pronunciations %=
+            verbly::filter("homophones", false,
+              (verbly::pronunciation::forms %= (subfilter && verbly::filter(
+                verbly::form::id,
+                verbly::filter::comparison::field_does_not_equal,
+                verbly::form::id)))));
+        }
+        default: break; // Not supported yet.
+      }
+      break;
+    }
+    case kBlack: {
+      switch (height) {
+        case kBottom: {
+          return (verbly::word::antonyms %= subfilter);
+        }
+        default: break; // Not supported yet.
+      }
+      break;
+    }
+    case kBrown: {
+      break; // Not supported yet.
+    }
+    case kRed: {
+      switch (height) {
+        case kTop: {
+          if (filter_direction == kTowardSolution)
+          {
+            return (verbly::pronunciation::merophones %= subfilter);
+          } else {
+            return (verbly::pronunciation::holophones %= subfilter);
+          }
+        }
+        case kMiddle: {
+          if (filter_direction == kTowardSolution)
+          {
+            return (verbly::form::merographs %= subfilter);
+          } else {
+            return (verbly::form::holographs %= subfilter);
+          }
+        }
+        case kBottom: {
+          if (filter_direction == kTowardSolution)
+          {
+            return (verbly::notion::partMeronyms %= subfilter);
+          } else {
+            return (verbly::notion::partHolonyms %= subfilter);
+          }
+        }
+        default: break; // Not supported yet.
+      }
+      break;
+    }
+    case kBlue: {
+      switch (height) {
+        case kTop: {
+          if (filter_direction == kTowardSolution)
+          {
+            return (verbly::pronunciation::holophones %= subfilter);
+          } else {
+            return (verbly::pronunciation::merophones %= subfilter);
+          }
+        }
+        case kMiddle: {
+          if (filter_direction == kTowardSolution)
+          {
+            return (verbly::form::holographs %= subfilter);
+          } else {
+            return (verbly::form::merographs %= subfilter);
+          }
+        }
+        case kBottom: {
+          if (filter_direction == kTowardSolution)
+          {
+            return (verbly::notion::partHolonyms %= subfilter);
+          } else {
+            return (verbly::notion::partMeronyms %= subfilter);
+          }
+        }
+        default: break; // Not supported yet.
+      }
+      break;
+    }
+    case kPurple: {
+      switch (height) {
+        case kMiddle: {
+          return (verbly::form::merographs %= (verbly::form::length >= 4 && (verbly::form::holographs %= subfilter)));
+        }
+        case kTop: {
+          return (verbly::pronunciation::rhymes %= subfilter);
+        }
+        default: break; // Not supported yet.
+      }
+      break;
+    }
+    case kYellow: {
+      switch (height) {
+        case kTop: {
+          return (verbly::pronunciation::anaphones %= (subfilter && verbly::filter(
+                verbly::pronunciation::id,
+                verbly::filter::comparison::field_does_not_equal,
+                verbly::pronunciation::id)));
+        }
+        case kMiddle: {
+          return (verbly::form::anagrams %= (subfilter && verbly::filter(
+                verbly::form::id,
+                verbly::filter::comparison::field_does_not_equal,
+                verbly::form::id)));
+        }
+        default: break; // Not supported yet.
+      }
+      break;
+    }
+    default: break; // Not supported yet.
+  }
+  return {};
+}
+
 class lingo {
 public:
   lingo(std::mt19937& rng) : rng_(rng) {}
@@ -49,6 +183,8 @@ public:
   void run(const std::string& configpath)
   {
     YAML::Node config = YAML::LoadFile(configpath);
+
+#ifdef ENABLE_BOT
     bot_ = std::make_unique<dpp::cluster>(config["discord_token"].as<std::string>());
 
     bot_->on_ready([this](const dpp::ready_t& event) {
@@ -90,6 +226,7 @@ public:
     });
 
     bot_->start();
+#endif
 
     dpp::snowflake channel(config["discord_channel"].as<uint64_t>());
 
@@ -164,366 +301,24 @@ private:
           if (!colour.has_value()) {
             continue;
           }
-          switch (*colour) {
-            case kWhite: {
-              switch (height) {
-                case kBottom: {
-                  forwardFilter &= (verbly::word::synonyms %= wordFilter);
-                  break;
-                }
-                case kTop: {
-                  forwardFilter &= (verbly::form::pronunciations %=
-                    verbly::filter("homophones", false,
-                      (verbly::pronunciation::forms %= (wordFilter && verbly::filter(
-                        verbly::form::id,
-                        verbly::filter::comparison::field_does_not_equal,
-                        verbly::form::id)))));
-                  break;
-                }
-                default: break; // Not supported yet.
-              }
-              break;
-            }
-            case kBlack: {
-              switch (height) {
-                case kBottom: {
-                  forwardFilter &= (verbly::word::antonyms %= wordFilter);
-                  break;
-                }
-                default: break; // Not supported yet.
-              }
-              break;
-            }
-            case kBrown: {
-              switch (height) {
-                case kBottom: {
-                  forwardFilter &= (verbly::notion::causes %= wordFilter);
-                  break;
-                }
-                default: break; // Not supported yet.
-              }
-              break;
-            }
-            case kRed: {
-              switch (height) {
-                case kTop: {
-                  forwardFilter &= (verbly::pronunciation::holophones %= wordFilter);
-                  break;
-                }
-                case kMiddle: {
-                  forwardFilter &= (verbly::form::holographs %= wordFilter);
-                  break;
-                }
-                case kBottom: {
-                  forwardFilter &= (verbly::notion::partMeronyms %= wordFilter);
-                  break;
-                }
-                default: break; // Not supported yet.
-              }
-              break;
-            }
-            case kBlue: {
-              switch (height) {
-                case kTop: {
-                  forwardFilter &= (verbly::pronunciation::merophones %= wordFilter);
-                  break;
-                }
-                case kMiddle: {
-                  forwardFilter &= (verbly::form::merographs %= wordFilter);
-                  break;
-                }
-                case kBottom: {
-                  forwardFilter &= (verbly::notion::partHolonyms %= wordFilter);
-                  break;
-                }
-                default: break; // Not supported yet.
-              }
-              break;
-            }
-            case kPurple: {
-              switch (height) {
-                case kMiddle: {
-                  forwardFilter &= (verbly::form::merographs %= (verbly::form::length >= 4 && (verbly::form::holographs %= wordFilter)));
-                  break;
-                }
-                case kTop: {
-                  forwardFilter &= (verbly::pronunciation::rhymes %= wordFilter);
-                  break;
-                }
-                default: break; // Not supported yet.
-              }
-              break;
-            }
-            case kYellow: {
-              switch (height) {
-                case kTop: {
-                  forwardFilter &= (verbly::pronunciation::anaphones %= (wordFilter && verbly::filter(
-                        verbly::pronunciation::id,
-                        verbly::filter::comparison::field_does_not_equal,
-                        verbly::pronunciation::id)));
-                  break;
-                }
-                case kMiddle: {
-                  forwardFilter &= (verbly::form::anagrams %= (wordFilter && verbly::filter(
-                        verbly::form::id,
-                        verbly::filter::comparison::field_does_not_equal,
-                        verbly::form::id)));
-                  break;
-                }
-                default: break; // Not supported yet.
-              }
-              break;
-            }
-            default: break; // Not supported yet.
-          }
+          forwardFilter &= makeHintFilter(wordFilter, height, *colour, kTowardSolution);
         }
 
         verbly::form solution = database_->forms(forwardFilter).first();
-        verbly::filter admissable = cleanFilter && (verbly::form::proper == false);
+        verbly::filter admissible = cleanFilter && (verbly::form::proper == false);
+
+        std::cout << "Solution decided: " << solution.getText() << std::endl;
 
         std::ostringstream msg_stream;
         for (int i=0; i<static_cast<int>(kHeightCount); i++) {
           Height height = static_cast<Height>(i);
           std::optional<Colour>& colour = parts[i];
           if (colour.has_value()) {
-            verbly::filter questionFilter;
-            switch (*colour) {
-              case kWhite: {
-                switch (height) {
-                  case kBottom: {
-                    questionFilter = (verbly::word::synonyms %= solution);
-                    break;
-                  }
-                  case kTop: {
-                    questionFilter = (verbly::form::pronunciations %=
-                      verbly::filter("homophones", false,
-                        (verbly::pronunciation::forms %= ((verbly::filter)solution && verbly::filter(
-                          verbly::form::id,
-                          verbly::filter::comparison::field_does_not_equal,
-                          verbly::form::id)))));
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kBlack: {
-                switch (height) {
-                  case kBottom: {
-                    questionFilter = (verbly::word::antonyms %= solution);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kBrown: {
-                switch (height) {
-                  case kBottom: {
-                    questionFilter = (verbly::notion::effects %= solution);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kBlue: {
-                switch (height) {
-                  case kTop: {
-                    questionFilter = (verbly::pronunciation::holophones %= solution);
-                    break;
-                  }
-                  case kMiddle: {
-                    questionFilter = (verbly::form::holographs %= solution);
-                    break;
-                  }
-                  case kBottom: {
-                    /*questionFilter = ((verbly::notion::fullMemberHolonyms %= solution)
-                      || (verbly::notion::fullPartHolonyms %= solution)
-                      || (verbly::notion::fullSubstanceHolonyms %= solution));*/
-                    //questionFilter &= !(verbly::notion::words %= solution);
-                    questionFilter = (verbly::notion::partMeronyms %= solution);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kRed: {
-                switch (height) {
-                  case kTop: {
-                    questionFilter = (verbly::pronunciation::merophones %= solution);
-                    break;
-                  }
-                  case kMiddle: {
-                    questionFilter = (verbly::form::merographs %= solution);
-                    break;
-                  }
-                  case kBottom: {
-                    /*questionFilter = ((verbly::notion::fullMemberMeronyms %= solution)
-                      || (verbly::notion::fullPartMeronyms %= solution)
-                      || (verbly::notion::fullSubstanceMeronyms %= solution));*/
-                    questionFilter = (verbly::notion::partHolonyms %= solution);
-                    //questionFilter &= !(verbly::notion::words %= solution);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kPurple: {
-                switch (height) {
-                  case kTop: {
-                    questionFilter = (verbly::pronunciation::rhymes %= solution);
-                    break;
-                  }
-                  case kMiddle: {
-                    questionFilter = (verbly::form::merographs %= (verbly::form::length >= 4 && (verbly::form::holographs %= solution)));
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kYellow: {
-                switch (height) {
-                  case kTop: {
-                    questionFilter = (verbly::pronunciation::anaphones %= ((verbly::filter)solution && verbly::filter(
-                        verbly::pronunciation::id,
-                        verbly::filter::comparison::field_does_not_equal,
-                        verbly::pronunciation::id)));
-                    break;
-                  }
-                  case kMiddle: {
-                    questionFilter = (verbly::form::anagrams %= ((verbly::filter)solution && verbly::filter(
-                        verbly::form::id,
-                        verbly::filter::comparison::field_does_not_equal,
-                        verbly::form::id)));
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              default: break; // Not supported yet.
-            }
+            verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
             verbly::form questionPart = database_->forms(questionFilter && cleanFilter).first();
             msg_stream << COLOUR_EMOJIS[*colour] << " " << questionPart.getText() << std::endl;
 
-            verbly::filter addedClause = (verbly::form::text == questionPart.getText());
-
-            switch (*colour) {
-              case kWhite: {
-                switch (height) {
-                  case kBottom: {
-                    admissable &= (verbly::word::synonyms %= addedClause);
-                    break;
-                  }
-                  case kTop: {
-                    admissable &= (verbly::form::pronunciations %=
-                      verbly::filter("homophones", false,
-                        (verbly::pronunciation::forms %= (addedClause && verbly::filter(
-                          verbly::form::id,
-                          verbly::filter::comparison::field_does_not_equal,
-                          verbly::form::id)))));
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kBlack: {
-                switch (height) {
-                  case kBottom: {
-                    admissable &= (verbly::word::antonyms %= addedClause);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kBrown: {
-                switch (height) {
-                  case kBottom: {
-                    admissable &= (verbly::notion::causes %= addedClause);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kRed: {
-                switch (height) {
-                  case kTop: {
-                    admissable &= (verbly::pronunciation::holophones %= addedClause);
-                    break;
-                  }
-                  case kMiddle: {
-                    admissable &= (verbly::form::holographs %= addedClause);
-                    break;
-                  }
-                  case kBottom: {
-                    admissable &= (verbly::notion::partMeronyms %= addedClause);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kBlue: {
-                switch (height) {
-                  case kTop: {
-                    admissable &= (verbly::pronunciation::merophones %= addedClause);
-                    break;
-                  }
-                  case kMiddle: {
-                    admissable &= (verbly::form::merographs %= addedClause);
-                    break;
-                  }
-                  case kBottom: {
-                    admissable &= (verbly::notion::partHolonyms %= addedClause);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kPurple: {
-                switch (height) {
-                  case kMiddle: {
-                    admissable &= (verbly::form::merographs %= (verbly::form::length >= 4 && (verbly::form::holographs %= addedClause)));
-                    break;
-                  }
-                  case kTop: {
-                    admissable &= (verbly::pronunciation::rhymes %= addedClause);
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              case kYellow: {
-                switch (height) {
-                  case kTop: {
-                    admissable &= (verbly::pronunciation::anaphones %= (addedClause && verbly::filter(
-                          verbly::pronunciation::id,
-                          verbly::filter::comparison::field_does_not_equal,
-                          verbly::pronunciation::id)));
-                    break;
-                  }
-                  case kMiddle: {
-                    admissable &= (verbly::form::anagrams %= (addedClause && verbly::filter(
-                          verbly::form::id,
-                          verbly::filter::comparison::field_does_not_equal,
-                          verbly::form::id)));
-                    break;
-                  }
-                  default: break; // Not supported yet.
-                }
-                break;
-              }
-              default: break; // Not supported yet.
-            }
+            admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
           } else {
             msg_stream << "▪️" << std::endl;
           }
@@ -539,9 +334,10 @@ private:
         std::string message_text = msg_stream.str();
         std::cout << message_text << std::endl << std::endl << solution.getText() << std::endl;
 
-        std::vector<verbly::form> admissableResults = database_->forms(admissable).all();
-        if (admissableResults.size() <= (hints == 1 ? 2 : 5))
+        std::vector<verbly::form> admissibleResults = database_->forms(admissible).all();
+        if (admissibleResults.size() <= (hints == 1 ? 2 : 5))
         {
+#ifdef ENABLE_BOT
           dpp::message message(channel, message_text);
           bot_->message_create(message, [this, &solution](const dpp::confirmation_callback_t& userdata) {
             const auto& posted_msg = std::get<dpp::message>(userdata.value);
@@ -552,10 +348,11 @@ private:
             }
             answer_by_message_[posted_msg.id] = solution.getText();
           });
+#endif
 
           generated = true;
         } else {
-          std::cout << "Too many (" << admissableResults.size() << ") results." << std::endl;
+          std::cout << "Too many (" << admissibleResults.size() << ") results." << std::endl;
         }
       } catch (const std::exception& ex) {
         std::cout << ex.what() << std::endl;
