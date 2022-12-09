@@ -450,13 +450,14 @@ private:
             msg_stream << NONE_EMOTE << std::endl;
           }
         }
-        std::string spaceless = solution.getText();
-        while (spaceless.find(" ") != std::string::npos)
+        auto byspace = hatkirby::split<std::list<std::string>>(solution.getText(), " ");
+        std::list<std::string> lens;
+        for (const std::string& wordpart : byspace)
         {
-          spaceless.erase(spaceless.find(" "), 1);
+          lens.push_back(std::to_string(wordpart.size()));
         }
 
-        msg_stream << "(" << spaceless.size() << ")";
+        msg_stream << "(" << hatkirby::implode(std::begin(lens), std::end(lens), " ") << ")";
 
         std::string message_text = msg_stream.str();
         std::cout << message_text << std::endl << std::endl << solution.getText() << std::endl;
