@@ -427,7 +427,10 @@ private:
       {kMiddle, kBlue},
     };
 
-    verbly::filter wordFilter = (verbly::form::proper == false);
+    verbly::filter wordFilter =
+      (verbly::form::proper == false) &&
+      (verbly::form::length >= 3) &&
+      (verbly::form::length <= 11);
 
     verbly::filter cleanFilter =
       !(verbly::word::usageDomains %= (verbly::notion::wnid == 106718862)) // ethnic slurs
@@ -500,7 +503,7 @@ private:
           continue;
         }
 
-        verbly::filter forwardFilter = cleanFilter && (verbly::form::proper == false);
+        verbly::filter forwardFilter = cleanFilter && wordFilter;
         for (int i=0; i<static_cast<int>(kHeightCount); i++) {
           Height height = static_cast<Height>(i);
           std::optional<Colour>& colour = parts[i];
