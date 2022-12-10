@@ -513,7 +513,7 @@ private:
           std::optional<Colour>& colour = parts[i];
           if (colour.has_value()) {
             verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
-            verbly::form questionPart = database_->forms(questionFilter && cleanFilter).first();
+            verbly::form questionPart = database_->forms(questionFilter && cleanFilter && wordFilter).first();
             msg_stream << COLOUR_EMOTES[*colour] << " " << questionPart.getText() << std::endl;
 
             admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
