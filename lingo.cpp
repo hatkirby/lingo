@@ -122,9 +122,19 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
         case kBottom: {
           if (filter_direction == kTowardSolution)
           {
-            return (verbly::notion::partMeronyms %= subfilter);
+            return (verbly::notion::partMeronyms %=
+              verbly::filter("partMeronyms", false,
+                subfilter && verbly::filter(
+                  verbly::form::id,
+                  verbly::filter::comparison::field_does_not_equal,
+                  verbly::form::id)));
           } else {
-            return (verbly::notion::partHolonyms %= subfilter);
+            return (verbly::notion::partHolonyms %=
+              verbly::filter("partHolonyms", false,
+                subfilter && verbly::filter(
+                  verbly::form::id,
+                  verbly::filter::comparison::field_does_not_equal,
+                  verbly::form::id)));
           }
         }
         default: break; // Not supported yet.
@@ -152,9 +162,19 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
         case kBottom: {
           if (filter_direction == kTowardSolution)
           {
-            return (verbly::notion::partHolonyms %= subfilter);
+            return (verbly::notion::partHolonyms %=
+              verbly::filter("partHolonyms", false,
+                subfilter && verbly::filter(
+                  verbly::form::id,
+                  verbly::filter::comparison::field_does_not_equal,
+                  verbly::form::id)));
           } else {
-            return (verbly::notion::partMeronyms %= subfilter);
+            return (verbly::notion::partMeronyms %=
+              verbly::filter("partMeronyms", false,
+                subfilter && verbly::filter(
+                  verbly::form::id,
+                  verbly::filter::comparison::field_does_not_equal,
+                  verbly::form::id)));
           }
         }
         default: break; // Not supported yet.
