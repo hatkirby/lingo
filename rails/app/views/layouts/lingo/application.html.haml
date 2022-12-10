@@ -1,0 +1,9 @@
+!!! 5
+%html
+  %head
+    %title LINGO Bot Scoreboard
+    = stylesheet_link_tag "lingo/application", media: "all"
+    = csrf_meta_tags
+  %body
+    #header= image_tag "lingo/header.png"
+    #content= yield

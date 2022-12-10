@@ -1,0 +1,9 @@
+%h2 Bot Puzzles Scoreboard
+%table#scores
+  - @scores.each do |score|
+    %tr
+      %td.score-pfp
+        - if !score.avatar_url.nil?
+          = image_tag score.avatar_url
+      %td.score-name= score.username
+      %td.score-value= score.score
