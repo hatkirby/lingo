@@ -388,6 +388,7 @@ private:
     std::set<std::tuple<Height, Colour>> expensive_hints = {
       {kTop, kPurple},
       {kMiddle, kPurple},
+      {kBottom, kBlack},
     };
 
     std::set<std::tuple<Height, Colour>> moderate_hints = {
@@ -395,7 +396,6 @@ private:
       {kTop, kBlue},
       {kMiddle, kRed},
       {kMiddle, kBlue},
-      {kBottom, kBlack},
     };
 
     verbly::filter wordFilter = (verbly::form::proper == false);
