@@ -1,7 +1,12 @@
 %h2 Bot Puzzles Scoreboard
 %table#scores
-  - @scores.each do |score|
-    %tr
+  %tr.scores-header
+    %th
+    %th{colspan: 2} Player
+    %th Score
+  - @scores.each_with_index do |score,index|
+    %tr{class: cycle("even", "odd")}
+      %td.score-index #{index+1}.
       %td.score-pfp
         - if !score.avatar_url.nil?
           = image_tag score.avatar_url

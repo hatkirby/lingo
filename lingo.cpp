@@ -1,6 +1,10 @@
 #include <dpp/dpp.h>
 #include <random>
 #include <yaml-cpp/yaml.h>
+#include <curl_easy.h>
+#include <curl_pair.h>
+#include <curl_form.h>
+#include <curl_exception.h>
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -278,9 +282,10 @@ public:
 
     bot_->on_message_create([this](const dpp::message_create_t& event) {
       std::lock_guard answer_lock(answers_mutex_);
-      if (answer_by_message_.count(static_cast<uint64_t>(event.msg.message_reference.message_id)))
+      uint64_t puzzle_id = static_cast<uint64_t>(event.msg.message_reference.message_id);
+      if (answer_by_message_.count(puzzle_id))
       {
-        std::string canonical_answer = hatkirby::lowercase(answer_by_message_[event.msg.message_reference.message_id]);
+        std::string canonical_answer = hatkirby::lowercase(answer_by_message_[puzzle_id]);
         std::string canonical_attempt = hatkirby::lowercase(event.msg.content);
         while (canonical_attempt.find("||") != std::string::npos)
         {
@@ -290,7 +295,49 @@ public:
         std::cout << "\"" << canonical_attempt << "\"" << std::endl;
         if (canonical_attempt == canonical_answer)
         {
-          bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "✅");
+          if (solved_puzzles_.count(puzzle_id))
+          {
+            bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "✅");
+          } else {
+            bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "🎉");
+            solved_puzzles_.insert(puzzle_id);
+
+            // Submit the score to the scoreboard.
+            curl::curl_form form;
+            curl::curl_easy easy;
+
+            std::string avatar_url = event.msg.author.get_avatar_url();
+            easy.escape(avatar_url);
+
+            // Forms creation
+            curl::curl_pair<CURLformoption,std::string> username_form(CURLFORM_COPYNAME,"username");
+            curl::curl_pair<CURLformoption,std::string> username_cont(CURLFORM_COPYCONTENTS,event.msg.author.username);
+            curl::curl_pair<CURLformoption,std::string> pass_form(CURLFORM_COPYNAME,"user_id");
+            curl::curl_pair<CURLformoption,std::string> pass_cont(CURLFORM_COPYCONTENTS,std::to_string(static_cast<uint64_t>(event.msg.author.id)));
+            curl::curl_pair<CURLformoption,std::string> av_form(CURLFORM_COPYNAME,"avatar_url");
+            curl::curl_pair<CURLformoption,std::string> av_cont(CURLFORM_COPYCONTENTS,avatar_url);
+            curl::curl_pair<CURLformoption,std::string> code_form(CURLFORM_COPYNAME,"secret_code");
+            curl::curl_pair<CURLformoption,std::string> code_cont(CURLFORM_COPYCONTENTS,scoreboard_secret_code_);
+
+            try {
+                // Form adding
+                form.add(username_form,username_cont);
+                form.add(pass_form,pass_cont);
+                form.add(av_form,av_cont);
+                form.add(code_form,code_cont);
+
+                // Add some options to our request
+                easy.add<CURLOPT_URL>(scoreboard_endpoint_.c_str());
+                easy.add<CURLOPT_SSL_VERIFYPEER>(false);
+                easy.add<CURLOPT_HTTPPOST>(form.get());
+                // Execute the request.
+                easy.perform();
+
+            } catch (curl::curl_easy_exception &error) {
+                // Otherwise we could print the stack like this:
+                error.print_traceback();
+            }
+          }
         } else {
           bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "❌");
         }
@@ -304,6 +351,9 @@ public:
 
     database_ = std::make_unique<verbly::database>(config["verbly_datafile"].as<std::string>());
     imagenet_ = std::make_unique<imagenet>(config["imagenet"].as<std::string>());
+
+    scoreboard_endpoint_ = config["scoreboard_endpoint"].as<std::string>();
+    scoreboard_secret_code_ = config["scoreboard_secret_code"].as<std::string>();
 
     for (;;)
     {
@@ -510,7 +560,10 @@ private:
   std::unique_ptr<verbly::database> database_;
   std::unique_ptr<imagenet> imagenet_;
   std::map<uint64_t, std::string> answer_by_message_;
+  std::set<uint64_t> solved_puzzles_;
   std::mutex answers_mutex_;
+  std::string scoreboard_endpoint_;
+  std::string scoreboard_secret_code_;
 };
 
 int main(int argc, char** argv)
