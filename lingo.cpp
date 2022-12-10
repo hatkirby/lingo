@@ -311,6 +311,14 @@ public:
         {
           canonical_attempt.erase(canonical_attempt.find("||"), 2);
         }
+        while (canonical_attempt.find(" ") != std::string::npos)
+        {
+          canonical_attempt.erase(canonical_attempt.find(" "), 1);
+        }
+        while (canonical_answer.find(" ") != std::string::npos)
+        {
+          canonical_answer.erase(canonical_answer.find(" "), 1);
+        }
 
         std::cout << "\"" << canonical_attempt << "\"" << std::endl;
         if (canonical_attempt == canonical_answer)
