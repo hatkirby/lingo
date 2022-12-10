@@ -37,6 +37,7 @@ enum Colour {
   kBrown,
   kYellow,
   kGreen,
+  kOrange,
   kColourCount
 };
 
@@ -48,7 +49,8 @@ const std::string COLOUR_EMOJIS[kColourCount] = {
   "🟪",
   "🟫",
   "🟨",
-  "🟩"
+  "🟩",
+  "🟧",
 };
 
 const std::string NONE_EMOTE = "<:xx:1047267830535557180>";
@@ -61,7 +63,8 @@ const std::string COLOUR_EMOTES[kColourCount] = {
   "<:pr:1047262146926489691>",
   "<:bn:1047262139187998790>",
   "<:yw:1047262152781737986>",
-  "<:gn:1047262141914304633>"
+  "<:gn:1047262141914304633>",
+  "<:or:1047262144934182983>",
 };
 
 enum FilterDirection {
@@ -272,6 +275,33 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
   return {};
 }
 
+class wanderlust {
+public:
+  explicit wanderlust(const std::string& filename)
+  {
+    std::ifstream file(filename);
+    std::string line;
+    while (std::getline(file, line))
+    {
+      std::string line2;
+      if (!std::getline(file, line2))
+      {
+        throw std::invalid_argument("Wanderlust file is malformed.");
+      }
+
+      puzzles_.emplace_back(line, line2);
+    }
+  }
+
+  std::tuple<std::string, std::string> getPuzzle(std::mt19937& rng) const
+  {
+    return puzzles_.at(std::uniform_int_distribution<int>(0, puzzles_.size()-1)(rng));
+  }
+
+private:
+  std::vector<std::tuple<std::string, std::string>> puzzles_;
+};
+
 class lingo {
 public:
   lingo(std::mt19937& rng) : rng_(rng) {}
@@ -380,6 +410,7 @@ public:
 
     database_ = std::make_unique<verbly::database>(config["verbly_datafile"].as<std::string>());
     imagenet_ = std::make_unique<imagenet>(config["imagenet"].as<std::string>());
+    wanderlust_ = std::make_unique<wanderlust>(config["wanderlust"].as<std::string>());
 
     scoreboard_endpoint_ = config["scoreboard_endpoint"].as<std::string>();
     scoreboard_secret_code_ = config["scoreboard_secret_code"].as<std::string>();
@@ -407,6 +438,7 @@ private:
       {kMiddle, kBlue},
       {kMiddle, kPurple},
       {kMiddle, kGreen},
+      {kMiddle, kOrange},
       {kBottom, kWhite},
       {kBottom, kBlack},
       {kBottom, kRed},
@@ -447,6 +479,7 @@ private:
         int expensive_uses = 0;
         int moderate_uses = 0;
         int green_uses = 0;
+        int orange_uses = 0;
         std::array<std::optional<Colour>, kHeightCount> parts;
         for (int height = 0; height < static_cast<int>(kHeightCount); height++) {
           if (std::bernoulli_distribution(0.5)(rng_)) {
@@ -471,6 +504,10 @@ private:
               if (colour == kGreen)
               {
                 green_uses++;
+              }
+              if (colour == kOrange)
+              {
+                orange_uses++;
               }
 
               std::cout << COLOUR_EMOJIS[colour];
@@ -503,6 +540,13 @@ private:
           continue;
         }
 
+        std::string orange_clue;
+        std::string orange_solution;
+        if (orange_uses > 0)
+        {
+          std::tie(orange_clue, orange_solution) = wanderlust_->getPuzzle(rng_);
+        }
+
         verbly::filter forwardFilter = cleanFilter && wordFilter;
         for (int i=0; i<static_cast<int>(kHeightCount); i++) {
           Height height = static_cast<Height>(i);
@@ -510,7 +554,12 @@ private:
           if (!colour.has_value()) {
             continue;
           }
-          forwardFilter &= makeHintFilter(wordFilter, height, *colour, kTowardSolution);
+          if (*colour == kOrange)
+          {
+            forwardFilter &= (verbly::form::text == orange_solution);
+          } else {
+            forwardFilter &= makeHintFilter(wordFilter, height, *colour, kTowardSolution);
+          }
         }
 
         verbly::form solution = database_->forms(forwardFilter).first();
@@ -523,11 +572,17 @@ private:
           Height height = static_cast<Height>(i);
           std::optional<Colour>& colour = parts[i];
           if (colour.has_value()) {
-            verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
-            verbly::form questionPart = database_->forms(questionFilter && cleanFilter && wordFilter).first();
-            msg_stream << COLOUR_EMOTES[*colour] << " " << questionPart.getText() << std::endl;
+            if (*colour == kOrange)
+            {
+              msg_stream << COLOUR_EMOTES[*colour] << " " << orange_clue << std::endl;
+              admissible &= (verbly::form::text == orange_solution);
+            } else {
+              verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
+              verbly::form questionPart = database_->forms(questionFilter && cleanFilter && wordFilter).first();
+              msg_stream << COLOUR_EMOTES[*colour] << " " << questionPart.getText() << std::endl;
 
-            admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
+              admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
+            }
           } else {
             msg_stream << NONE_EMOTE << std::endl;
           }
@@ -596,6 +651,7 @@ private:
   std::mutex answers_mutex_;
   std::string scoreboard_endpoint_;
   std::string scoreboard_secret_code_;
+  std::unique_ptr<wanderlust> wanderlust_;
 };
 
 int main(int argc, char** argv)
