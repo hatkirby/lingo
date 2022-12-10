@@ -10,9 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2022_12_10_141051) do
+ActiveRecord::Schema[7.0].define(version: 2022_12_10_174732) do
   create_table "lingo_scores", force: :cascade do |t|
-    t.integer "user_id"
+    t.integer "user_id", limit: 8
     t.string "username"
     t.string "avatar_url"
     t.integer "score"
