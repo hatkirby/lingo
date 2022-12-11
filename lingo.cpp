@@ -302,6 +302,13 @@ private:
   std::vector<std::tuple<std::string, std::string>> puzzles_;
 };
 
+struct puzzle {
+  std::string message; // exact text to be posted to discord
+  std::string solution; // pre-canonicalized for answer checking
+  std::string attachment_name; // only populated for green clues
+  std::string attachment_content; // ^
+};
+
 class lingo {
 public:
   lingo(std::mt19937& rng) : rng_(rng) {}
@@ -325,8 +332,7 @@ public:
       if (event.command.get_command_name() == "newpuzzle") {
         event.thinking(true);
 
-        std::thread genpuzz(&lingo::generatePuzzle, this, event.command.get_channel().id);
-        genpuzz.detach();
+        sendPuzzle(event.command.get_channel().id);
       }
     });
 
@@ -335,7 +341,7 @@ public:
       uint64_t puzzle_id = static_cast<uint64_t>(event.msg.message_reference.message_id);
       if (answer_by_message_.count(puzzle_id))
       {
-        std::string canonical_answer = hatkirby::lowercase(answer_by_message_[puzzle_id]);
+        std::string canonical_answer = answer_by_message_[puzzle_id];
         std::string canonical_attempt = hatkirby::lowercase(event.msg.content);
         while (canonical_attempt.find("||") != std::string::npos)
         {
@@ -344,10 +350,6 @@ public:
         while (canonical_attempt.find(" ") != std::string::npos)
         {
           canonical_attempt.erase(canonical_attempt.find(" "), 1);
-        }
-        while (canonical_answer.find(" ") != std::string::npos)
-        {
-          canonical_answer.erase(canonical_answer.find(" "), 1);
         }
 
         std::cout << "\"" << canonical_attempt << "\"" << std::endl;
@@ -418,17 +420,18 @@ public:
 
     for (;;)
     {
-      std::thread genpuzz(&lingo::generatePuzzle, this, channel);
-      genpuzz.detach();
+      sendPuzzle(channel);
 
-      std::this_thread::sleep_for(std::chrono::hours(24));
+      std::this_thread::sleep_for(std::chrono::hours(4));
     }
   }
 
 private:
 
-  void generatePuzzle(dpp::snowflake channel)
+  void generatePuzzle()
   {
+    std::cout << "Generating puzzle..." << std::endl;
+
     std::set<std::tuple<Height, Colour>> filters = {
       {kTop, kPurple},
       {kTop, kWhite},
@@ -469,8 +472,8 @@ private:
       !(verbly::word::usageDomains %= (verbly::notion::wnid == 106718862)) // ethnic slurs
       && !(verbly::notion::wnid == 110630093); // "spastic"
 
-    bool generated = false;
-    while (!generated)
+    std::unique_ptr<puzzle> genpuzzle;
+    for (;;)
     {
       std::cout << "Generating... " << std::endl;
       try
@@ -603,8 +606,13 @@ private:
         std::vector<verbly::form> admissibleResults = database_->forms(admissible, {}, 10).all();
         if (green_uses > 0 || (admissibleResults.size() <= (hints == 1 ? 2 : 5)))
         {
-#ifdef ENABLE_BOT
-          dpp::message message(channel, message_text);
+          genpuzzle = std::make_unique<puzzle>();
+          genpuzzle->message = message_text;
+          genpuzzle->solution = hatkirby::lowercase(solution.getText());
+          while (genpuzzle->solution.find(" ") != std::string::npos)
+          {
+            genpuzzle->solution.erase(genpuzzle->solution.find(" "), 1);
+          }
 
           if (green_uses > 0)
           {
@@ -616,21 +624,11 @@ private:
               throw std::runtime_error("Could not find image for green hint.");
             }
 
-            message.add_file(std::string("SPOILER_image.") + extension, image);
+            genpuzzle->attachment_name = std::string("SPOILER_image.") + extension;
+            genpuzzle->attachment_content = std::move(image);
           }
 
-          bot_->message_create(message, [this, &solution](const dpp::confirmation_callback_t& userdata) {
-            const auto& posted_msg = std::get<dpp::message>(userdata.value);
-            std::lock_guard answer_lock(answers_mutex_);
-            if (answer_by_message_.size() > 3000)
-            {
-              answer_by_message_.clear();
-            }
-            answer_by_message_[posted_msg.id] = solution.getText();
-          });
-#endif
-
-          generated = true;
+          break;
         } else {
           std::cout << "Too many (" << admissibleResults.size() << ") results." << std::endl;
         }
@@ -641,18 +639,111 @@ private:
       std::cout << "Waiting five seconds then trying again..." << std::endl;
       std::this_thread::sleep_for(std::chrono::seconds(5));
     }
+
+    // generatePuzzle is only called when there is no cached puzzle and there
+    // is no other puzzle being generated. therefore, we do not need to worry
+    // about a race condition with another generatePuzzle. however, we do not
+    // want to interfere with a sendPuzzle. lock the cached puzzle. if
+    // sendPuzzle gets it first, it will see that there is no cached puzzle,
+    // it will queue its channel, and then it will return because a puzzle is
+    // already being generated. if generatePuzzle gets it first and there are
+    // no queued channels, it will store the puzzle and return, which means
+    // that a waiting sendPuzzle can immediately grab it. if there is a
+    // queued channel, generatePuzzle dequeues it and and calls sendPuzzle on
+    // it. which sendPuzzle gets the lock is undetermined, but it does not
+    // matter.
+    std::optional<dpp::snowflake> send_channel;
+    {
+      std::lock_guard cache_lock(cache_mutex_);
+      cached_puzzle_ = std::move(genpuzzle);
+      generating_puzzle_ = false;
+
+      if (!queued_channels_.empty())
+      {
+        send_channel = queued_channels_.front();
+        queued_channels_.pop_front();
+      }
+    }
+
+    if (send_channel)
+    {
+      sendPuzzle(*send_channel);
+    }
+  }
+
+  // called when the bot starts (no cached puzzle)
+  // called when /newpuzzle is run (maybe a cached puzzle)
+  // called at the end of generatePuzzle if channel queue is non-empty (definitely a cached puzzle)
+  //
+  // if there is a cached puzzle, send it immediately (removes cached puzzle). if not, add it to the channels queue.
+  // at this point there is no cached puzzle. if there is no puzzle being generated right now, spin off a thread to do so
+  void sendPuzzle(dpp::snowflake channel)
+  {
+    // lock the cached puzzle so
+    // 1) sendPuzzle in another thread doesn't steal our puzzle
+    // 2) generatePuzzle in another thread doesn't provide a puzzle
+    //    before we can add something to the channel queue
+    std::lock_guard cache_lock(cache_mutex_);
+    if (cached_puzzle_ != nullptr)
+    {
+      std::cout << "Sending to " << static_cast<uint64_t>(channel) << std::endl;
+#ifdef ENABLE_BOT
+      dpp::message message(channel, cached_puzzle_->message);
+      if (!cached_puzzle_->attachment_content.empty())
+      {
+        message.add_file(cached_puzzle_->attachment_name, cached_puzzle_->attachment_content);
+      }
+
+      std::string solution = cached_puzzle_->solution;
+      bot_->message_create(message, [this, solution](const dpp::confirmation_callback_t& userdata) {
+        const auto& posted_msg = std::get<dpp::message>(userdata.value);
+        std::lock_guard answer_lock(answers_mutex_);
+        if (answer_by_message_.size() > 3000)
+        {
+          answer_by_message_.clear();
+        }
+        answer_by_message_[posted_msg.id] = solution;
+      });
+#endif
+
+      cached_puzzle_.reset();
+    } else {
+      std::cout << "Queued " << static_cast<uint64_t>(channel) << std::endl;
+      queued_channels_.push_back(channel);
+    }
+
+    // at this point, we guarantee that there are no puzzles. a generation
+    // thread may already be running, though, so we will not spin up
+    // another one if there is.
+    if (generating_puzzle_)
+    {
+      return;
+    }
+
+    generating_puzzle_ = true;
+
+    std::thread generation_thread([this](){
+      generatePuzzle();
+    });
+    generation_thread.detach();
   }
 
   std::mt19937& rng_;
   std::unique_ptr<dpp::cluster> bot_;
   std::unique_ptr<verbly::database> database_;
   std::unique_ptr<imagenet> imagenet_;
-  std::map<uint64_t, std::string> answer_by_message_;
-  std::set<uint64_t> solved_puzzles_;
-  std::mutex answers_mutex_;
   std::string scoreboard_endpoint_;
   std::string scoreboard_secret_code_;
   std::unique_ptr<wanderlust> wanderlust_;
+
+  std::map<uint64_t, std::string> answer_by_message_;
+  std::set<uint64_t> solved_puzzles_;
+  std::mutex answers_mutex_;
+
+  bool generating_puzzle_ = false;
+  std::unique_ptr<puzzle> cached_puzzle_;
+  std::deque<dpp::snowflake> queued_channels_;
+  std::mutex cache_mutex_;
 };
 
 int main(int argc, char** argv)
