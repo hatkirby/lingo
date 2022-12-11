@@ -370,7 +370,7 @@ public:
 
             // Forms creation
             curl::curl_pair<CURLformoption,std::string> username_form(CURLFORM_COPYNAME,"username");
-            curl::curl_pair<CURLformoption,std::string> username_cont(CURLFORM_COPYCONTENTS,event.msg.author.username);
+            curl::curl_pair<CURLformoption,std::string> username_cont(CURLFORM_COPYCONTENTS,event.msg.member.nickname);
             curl::curl_pair<CURLformoption,std::string> pass_form(CURLFORM_COPYNAME,"user_id");
             curl::curl_pair<CURLformoption,std::string> pass_cont(CURLFORM_COPYCONTENTS,user_id_str);
             curl::curl_pair<CURLformoption,std::string> av_form(CURLFORM_COPYNAME,"avatar_url");
