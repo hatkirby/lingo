@@ -367,10 +367,11 @@ public:
             std::string avatar_url = event.msg.author.get_avatar_url();
             easy.escape(avatar_url);
             std::string user_id_str = std::to_string(static_cast<uint64_t>(event.msg.author.id));
+            std::string username = event.msg.member.nickname.empty() ? event.msg.author.username : event.msg.member.nickname;
 
             // Forms creation
             curl::curl_pair<CURLformoption,std::string> username_form(CURLFORM_COPYNAME,"username");
-            curl::curl_pair<CURLformoption,std::string> username_cont(CURLFORM_COPYCONTENTS,event.msg.member.nickname);
+            curl::curl_pair<CURLformoption,std::string> username_cont(CURLFORM_COPYCONTENTS,username);
             curl::curl_pair<CURLformoption,std::string> pass_form(CURLFORM_COPYNAME,"user_id");
             curl::curl_pair<CURLformoption,std::string> pass_cont(CURLFORM_COPYCONTENTS,user_id_str);
             curl::curl_pair<CURLformoption,std::string> av_form(CURLFORM_COPYNAME,"avatar_url");
