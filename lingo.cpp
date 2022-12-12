@@ -428,6 +428,22 @@ public:
 
 private:
 
+  bool isClueTrivial(Height height, Colour colour, const verbly::form& clue, const verbly::form& solution) const
+  {
+    if (height == kTop && colour == kWhite)
+    {
+      return !database_->forms((verbly::filter)clue && (verbly::word::synonyms %= solution)).all().empty();
+    } else if (height == kBottom && colour == kWhite)
+    {
+      return !database_->forms((verbly::filter)clue && (verbly::form::pronunciations %= solution)).all().empty();
+    } else if (height == kBottom && colour == kBlack)
+    {
+      return !database_->forms((verbly::filter)clue && (verbly::form::merographs %= solution)).all().empty()
+        || !database_->forms((verbly::filter)clue && (verbly::form::holographs %= solution)).all().empty();
+    }
+    return false;
+  }
+
   void generatePuzzle()
   {
     std::cout << "Generating puzzle..." << std::endl;
@@ -568,70 +584,93 @@ private:
         }
 
         verbly::form solution = database_->forms(forwardFilter).first();
-        verbly::filter admissible = cleanFilter && (verbly::form::proper == false);
 
         std::cout << "Solution decided: " << solution.getText() << std::endl;
 
-        std::ostringstream msg_stream;
-        for (int i=0; i<static_cast<int>(kHeightCount); i++) {
-          Height height = static_cast<Height>(i);
-          std::optional<Colour>& colour = parts[i];
-          if (colour.has_value()) {
-            if (*colour == kOrange)
-            {
-              msg_stream << COLOUR_EMOTES[*colour] << " " << orange_clue << std::endl;
-              admissible &= (verbly::form::text == orange_solution);
+        bool made_puzzle = false;
+        for (int i=0; i<10; i++)
+        {
+          verbly::filter admissible = cleanFilter && (verbly::form::proper == false) && (verbly::form::length == static_cast<int>(solution.getText().size()));
+          std::ostringstream msg_stream;
+          bool trivial = false;
+          for (int i=0; i<static_cast<int>(kHeightCount); i++) {
+            Height height = static_cast<Height>(i);
+            std::optional<Colour>& colour = parts[i];
+            if (colour.has_value()) {
+              if (*colour == kOrange)
+              {
+                msg_stream << COLOUR_EMOTES[*colour] << " " << orange_clue << std::endl;
+                admissible &= (verbly::form::text == orange_solution);
+              } else {
+                verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
+                verbly::form questionPart = database_->forms(questionFilter && cleanFilter && wordFilter).first();
+                msg_stream << COLOUR_EMOTES[*colour] << " " << questionPart.getText() << std::endl;
+
+                if (isClueTrivial(height, *colour, questionPart, solution))
+                {
+                  trivial = true;
+                  break;
+                }
+
+                admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
+              }
             } else {
-              verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
-              verbly::form questionPart = database_->forms(questionFilter && cleanFilter && wordFilter).first();
-              msg_stream << COLOUR_EMOTES[*colour] << " " << questionPart.getText() << std::endl;
-
-              admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
+              msg_stream << NONE_EMOTE << std::endl;
             }
-          } else {
-            msg_stream << NONE_EMOTE << std::endl;
-          }
-        }
-        auto byspace = hatkirby::split<std::list<std::string>>(solution.getText(), " ");
-        std::list<std::string> lens;
-        for (const std::string& wordpart : byspace)
-        {
-          lens.push_back(std::to_string(wordpart.size()));
-        }
-
-        msg_stream << "(" << hatkirby::implode(std::begin(lens), std::end(lens), " ") << ")";
-
-        std::string message_text = msg_stream.str();
-        std::cout << message_text << std::endl << std::endl << solution.getText() << std::endl;
-
-        std::vector<verbly::form> admissibleResults = database_->forms(admissible, {}, 10).all();
-        if (green_uses > 0 || (admissibleResults.size() <= (hints == 1 ? 2 : 5)))
-        {
-          genpuzzle = std::make_unique<puzzle>();
-          genpuzzle->message = message_text;
-          genpuzzle->solution = hatkirby::lowercase(solution.getText());
-          while (genpuzzle->solution.find(" ") != std::string::npos)
-          {
-            genpuzzle->solution.erase(genpuzzle->solution.find(" "), 1);
           }
 
-          if (green_uses > 0)
+          if (trivial)
           {
-            verbly::notion notion = database_->notions(
-              (verbly::notion::numOfImages > 1) && solution).first();
-            auto [image, extension] = imagenet_->getImageForNotion(notion.getId(), rng_);
-            if (image.empty())
+            std::cout << "Puzzle is trivial." << std::endl;
+            continue;
+          }
+
+          auto byspace = hatkirby::split<std::list<std::string>>(solution.getText(), " ");
+          std::list<std::string> lens;
+          for (const std::string& wordpart : byspace)
+          {
+            lens.push_back(std::to_string(wordpart.size()));
+          }
+
+          msg_stream << "(" << hatkirby::implode(std::begin(lens), std::end(lens), " ") << ")";
+
+          std::string message_text = msg_stream.str();
+          std::cout << message_text << std::endl << std::endl << solution.getText() << std::endl;
+
+          std::vector<verbly::form> admissibleResults = database_->forms(admissible, {}, 10).all();
+          if (green_uses > 0 || (admissibleResults.size() <= (hints == 1 ? 2 : 5)))
+          {
+            genpuzzle = std::make_unique<puzzle>();
+            genpuzzle->message = message_text;
+            genpuzzle->solution = hatkirby::lowercase(solution.getText());
+            while (genpuzzle->solution.find(" ") != std::string::npos)
             {
-              throw std::runtime_error("Could not find image for green hint.");
+              genpuzzle->solution.erase(genpuzzle->solution.find(" "), 1);
             }
 
-            genpuzzle->attachment_name = std::string("SPOILER_image.") + extension;
-            genpuzzle->attachment_content = std::move(image);
-          }
+            if (green_uses > 0)
+            {
+              verbly::notion notion = database_->notions(
+                (verbly::notion::numOfImages > 1) && solution).first();
+              auto [image, extension] = imagenet_->getImageForNotion(notion.getId(), rng_);
+              if (image.empty())
+              {
+                throw std::runtime_error("Could not find image for green hint.");
+              }
 
+              genpuzzle->attachment_name = std::string("SPOILER_image.") + extension;
+              genpuzzle->attachment_content = std::move(image);
+            }
+
+            made_puzzle = true;
+            break;
+          } else {
+            std::cout << "Too many (" << admissibleResults.size() << ") results." << std::endl;
+          }
+        }
+        if (made_puzzle)
+        {
           break;
-        } else {
-          std::cout << "Too many (" << admissibleResults.size() << ") results." << std::endl;
         }
       } catch (const std::exception& ex) {
         std::cout << ex.what() << std::endl;
