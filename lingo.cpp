@@ -437,6 +437,7 @@ private:
       {kTop, kWhite},
       {kTop, kRed},
       {kTop, kBlue},
+      {kTop, kYellow},
       {kMiddle, kYellow},
       {kMiddle, kRed},
       {kMiddle, kBlue},
