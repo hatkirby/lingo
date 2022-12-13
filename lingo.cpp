@@ -453,7 +453,7 @@ private:
       {kTop, kWhite},
       {kTop, kRed},
       {kTop, kBlue},
-      {kTop, kYellow},
+      //{kTop, kYellow},
       {kMiddle, kYellow},
       {kMiddle, kRed},
       {kMiddle, kBlue},
@@ -468,6 +468,8 @@ private:
     };
 
     std::set<std::tuple<Height, Colour>> expensive_hints = {
+      //{kTop, kYellow},
+      //{kMiddle, kYellow},
       {kTop, kPurple},
       {kMiddle, kPurple},
       {kBottom, kBlack},
@@ -478,6 +480,7 @@ private:
       {kTop, kBlue},
       {kMiddle, kRed},
       {kMiddle, kBlue},
+      //{kBottom, kBlack},
     };
 
     verbly::filter wordFilter =
