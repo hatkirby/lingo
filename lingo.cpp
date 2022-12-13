@@ -360,6 +360,8 @@ public:
             bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "✅");
           } else {
             bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "🎉");
+            bot_->message_add_reaction(puzzle_id, event.msg.channel_id, "🏁");
+
             solved_puzzles_.insert(puzzle_id);
 
             // Submit the score to the scoreboard.
