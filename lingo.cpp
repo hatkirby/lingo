@@ -442,6 +442,9 @@ private:
     {
       return !database_->forms((verbly::filter)clue && (verbly::form::merographs %= solution)).all().empty()
         || !database_->forms((verbly::filter)clue && (verbly::form::holographs %= solution)).all().empty();
+    } else if (height == kMiddle && colour == kPurple)
+    {
+      return clue.getId() == solution.getId();
     }
     return false;
   }
