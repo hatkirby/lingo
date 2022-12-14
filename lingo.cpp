@@ -509,6 +509,7 @@ private:
       {
         int hints = 0;
         int non_purple_uses = 0;
+        int non_green_uses = 0;
         int expensive_uses = 0;
         int moderate_uses = 0;
         int green_uses = 0;
@@ -525,6 +526,10 @@ private:
               if (colour != kPurple)
               {
                 non_purple_uses++;
+              }
+              if (colour != kGreen)
+              {
+                non_green_uses++;
               }
               if (expensive_hints.count(combo))
               {
@@ -553,9 +558,9 @@ private:
         }
         std::cout << std::endl;
 
-        if (non_purple_uses < 1)
+        if (non_purple_uses < 1 || non_green_uses < 1)
         {
-          std::cout << "No hints (or only purple hints)." << std::endl;
+          std::cout << "No hints (or only purple or only green hints)." << std::endl;
           continue;
         }
         if (expensive_uses > 1)
