@@ -404,6 +404,10 @@ public:
           }
         } else {
           bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "❌");
+          if (canonical_attempt.size() != canonical_answer.size())
+          {
+            bot_->message_add_reaction(event.msg.id, event.msg.channel_id, "🍂");
+          }
         }
       }
     });
