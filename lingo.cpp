@@ -449,6 +449,9 @@ private:
     } else if (height == kMiddle && colour == kPurple)
     {
       return clue.getId() == solution.getId();
+    } else if (height == kTop && colour == kPurple)
+    {
+      return clue.getId() == solution.getId();
     }
     return false;
   }
