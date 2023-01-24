@@ -502,7 +502,8 @@ private:
 
     verbly::filter cleanFilter =
       !(verbly::word::usageDomains %= (verbly::notion::wnid == 106718862)) // ethnic slurs
-      && !(verbly::notion::wnid == 110630093); // "spastic"
+      && !(verbly::notion::wnid == 110630093) // "spastic"
+      && !(verbly::notion::fullHypernyms %= (verbly::notion::wnid == 100844254)); // sexual activity
 
     std::unique_ptr<puzzle> genpuzzle;
     for (;;)
