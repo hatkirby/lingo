@@ -498,7 +498,8 @@ private:
     verbly::filter wordFilter =
       (verbly::form::proper == false) &&
       (verbly::form::length >= 3) &&
-      (verbly::form::length <= 11);
+      (verbly::form::length <= 11) &&
+      ((verbly::form::frequency > 2000000) || (verbly::form::complexity > 1));
 
     verbly::filter cleanFilter =
       !(verbly::word::usageDomains %= (verbly::notion::wnid == 106718862)) // ethnic slurs
