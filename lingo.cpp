@@ -808,8 +808,15 @@ private:
         throw std::runtime_error("Could not find image for green hint.");
       }
 
-      genpuzzle.attachment_name = std::string("SPOILER_image.") + extension;
-      genpuzzle.attachment_content = std::move(image);
+      Magick::Blob inputblob(image.c_str(), image.length());
+      Magick::Image inputimg;
+      inputimg.read(inputblob);
+      inputimg.magick("png");
+      Magick::Blob outputblob;
+      inputimg.write(&outputblob);
+
+      genpuzzle.attachment_name = "SPOILER_image.png";
+      genpuzzle.attachment_content = std::string((const char*) outputblob.data(), outputblob.length());
     } else {
       double fontsize = 72;
       std::string renderWord = solution.getText();
