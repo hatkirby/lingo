@@ -624,6 +624,8 @@ private:
 
         std::cout << "Solution decided: " << solution.getText() << std::endl;
 
+        std::array<std::optional<std::string>, kHeightCount> chosenHints;
+
         bool made_puzzle = false;
         for (int i=0; i<10; i++)
         {
@@ -636,12 +638,12 @@ private:
             if (colour.has_value()) {
               if (*colour == kOrange)
               {
-                msg_stream << COLOUR_EMOTES[*colour] << " " << orange_clue << std::endl;
+                chosenHints[i] = orange_clue;
                 admissible &= (verbly::form::text == orange_solution);
               } else {
                 verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
                 verbly::form questionPart = database_->forms(questionFilter && cleanFilter && wordFilter).first();
-                msg_stream << COLOUR_EMOTES[*colour] << " " << questionPart.getText() << std::endl;
+                chosenHints[i] = questionPart.getText();
 
                 if (isClueTrivial(height, *colour, questionPart, solution))
                 {
@@ -651,8 +653,6 @@ private:
 
                 admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
               }
-            } else {
-              msg_stream << NONE_EMOTE << std::endl;
             }
           }
 
@@ -660,6 +660,47 @@ private:
           {
             std::cout << "Puzzle is trivial." << std::endl;
             continue;
+          }
+
+          if (parts[static_cast<int>(kTop)].has_value()
+            && !parts[static_cast<int>(kMiddle)].has_value()
+            && filters.count({kMiddle, *parts[static_cast<int>(kTop)]}))
+          {
+            verbly::filter questionFilter =
+              makeHintFilter(solution, kMiddle, *parts[static_cast<int>(kTop)], kTowardQuestion)
+                && (verbly::form::text == *chosenHints[static_cast<int>(kTop)]);
+            if (!database_->forms(questionFilter).all().empty())
+            {
+              std::cout << "Expanding top to middle" << std::endl;
+              parts[static_cast<int>(kMiddle)] = parts[static_cast<int>(kTop)];
+              chosenHints[static_cast<int>(kMiddle)] = chosenHints[static_cast<int>(kTop)];
+            }
+          } else if (!parts[static_cast<int>(kTop)].has_value()
+            && parts[static_cast<int>(kMiddle)].has_value()
+            && filters.count({kTop, *parts[static_cast<int>(kMiddle)]}))
+          {
+            verbly::filter questionFilter =
+              makeHintFilter(solution, kTop, *parts[static_cast<int>(kMiddle)], kTowardQuestion)
+                && (verbly::form::text == *chosenHints[static_cast<int>(kMiddle)]);
+            if (!database_->forms(questionFilter).all().empty())
+            {
+              std::cout << "Expanding middle to top" << std::endl;
+              parts[static_cast<int>(kTop)] = parts[static_cast<int>(kMiddle)];
+              chosenHints[static_cast<int>(kTop)] = chosenHints[static_cast<int>(kMiddle)];
+            }
+          }
+
+          for (int i=0; i<static_cast<int>(kHeightCount); i++)
+          {
+            Height height = static_cast<Height>(i);
+            std::optional<Colour>& colour = parts[i];
+            std::optional<std::string>& hint = chosenHints[i];
+            if (colour.has_value() && hint.has_value())
+            {
+              msg_stream << COLOUR_EMOTES[*colour] << " " << *hint << std::endl;
+            } else {
+              msg_stream << NONE_EMOTE << std::endl;
+            }
           }
 
           auto byspace = hatkirby::split<std::list<std::string>>(solution.getText(), " ");
