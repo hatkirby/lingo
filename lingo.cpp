@@ -17,6 +17,7 @@
 #include <optional>
 #include <map>
 #include <array>
+#include <Magick++.h>
 #include "imagenet.h"
 
 #define ENABLE_BOT
@@ -229,42 +230,50 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
     case kGreen: {
       if (filter_direction == kTowardSolution)
       {
-        verbly::filter whitelist =
-          (verbly::notion::wnid == 109287968)    // Geological formations
-          || (verbly::notion::wnid == 109208496) // Asterisms (collections of stars)
-          || (verbly::notion::wnid == 109239740) // Celestial bodies
-          || (verbly::notion::wnid == 109277686) // Exterrestrial objects (comets and meteroids)
-          || (verbly::notion::wnid == 109403211) // Radiators (supposedly natural radiators but actually these are just pictures of radiators)
-          || (verbly::notion::wnid == 109416076) // Rocks
-          || (verbly::notion::wnid == 105442131) // Chromosomes
-          || (verbly::notion::wnid == 100324978) // Tightrope walking
-          || (verbly::notion::wnid == 100326094) // Rock climbing
-          || (verbly::notion::wnid == 100433458) // Contact sports
-          || (verbly::notion::wnid == 100433802) // Gymnastics
-          || (verbly::notion::wnid == 100439826) // Track and field
-          || (verbly::notion::wnid == 100440747) // Skiing
-          || (verbly::notion::wnid == 100441824) // Water sport
-          || (verbly::notion::wnid == 100445351) // Rowing
-          || (verbly::notion::wnid == 100446980) // Archery
-            // TODO: add more sports
-          || (verbly::notion::wnid == 100021939) // Artifacts
-          || (verbly::notion::wnid == 101471682) // Vertebrates
-            ;
+        switch (height) {
+          case kBottom: {
+            verbly::filter whitelist =
+              (verbly::notion::wnid == 109287968)    // Geological formations
+              || (verbly::notion::wnid == 109208496) // Asterisms (collections of stars)
+              || (verbly::notion::wnid == 109239740) // Celestial bodies
+              || (verbly::notion::wnid == 109277686) // Exterrestrial objects (comets and meteroids)
+              || (verbly::notion::wnid == 109403211) // Radiators (supposedly natural radiators but actually these are just pictures of radiators)
+              || (verbly::notion::wnid == 109416076) // Rocks
+              || (verbly::notion::wnid == 105442131) // Chromosomes
+              || (verbly::notion::wnid == 100324978) // Tightrope walking
+              || (verbly::notion::wnid == 100326094) // Rock climbing
+              || (verbly::notion::wnid == 100433458) // Contact sports
+              || (verbly::notion::wnid == 100433802) // Gymnastics
+              || (verbly::notion::wnid == 100439826) // Track and field
+              || (verbly::notion::wnid == 100440747) // Skiing
+              || (verbly::notion::wnid == 100441824) // Water sport
+              || (verbly::notion::wnid == 100445351) // Rowing
+              || (verbly::notion::wnid == 100446980) // Archery
+                // TODO: add more sports
+              || (verbly::notion::wnid == 100021939) // Artifacts
+              || (verbly::notion::wnid == 101471682) // Vertebrates
+                ;
 
-        verbly::filter blacklist =
-          (verbly::notion::wnid == 106883725) // swastika
-          || (verbly::notion::wnid == 104416901) // tetraskele
-          || (verbly::notion::wnid == 102512053) // fish
-          || (verbly::notion::wnid == 103575691) // instrument of execution
-          || (verbly::notion::wnid == 103829563) // noose
-          || (verbly::notion::wnid == 103663910) // life support
-            ;
+            verbly::filter blacklist =
+              (verbly::notion::wnid == 106883725) // swastika
+              || (verbly::notion::wnid == 104416901) // tetraskele
+              || (verbly::notion::wnid == 102512053) // fish
+              || (verbly::notion::wnid == 103575691) // instrument of execution
+              || (verbly::notion::wnid == 103829563) // noose
+              || (verbly::notion::wnid == 103663910) // life support
+                ;
 
-        return subfilter
-          && (verbly::notion::fullHypernyms %= whitelist)
-          && !(verbly::notion::fullHypernyms %= blacklist)
-          && (verbly::notion::partOfSpeech == verbly::part_of_speech::noun)
-          && (verbly::notion::numOfImages >= 1);
+            return subfilter
+              && (verbly::notion::fullHypernyms %= whitelist)
+              && !(verbly::notion::fullHypernyms %= blacklist)
+              && (verbly::notion::partOfSpeech == verbly::part_of_speech::noun)
+              && (verbly::notion::numOfImages >= 1);
+          }
+          case kMiddle: {
+            return subfilter;
+          }
+          default: break; // Never supported.
+        }
       } else {
         return (verbly::form::text == "picture");
       }
@@ -420,6 +429,7 @@ public:
     database_ = std::make_unique<verbly::database>(config["verbly_datafile"].as<std::string>());
     imagenet_ = std::make_unique<imagenet>(config["imagenet"].as<std::string>());
     wanderlust_ = std::make_unique<wanderlust>(config["wanderlust"].as<std::string>());
+    fontpath_ = config["font"].as<std::string>();
 
     scoreboard_endpoint_ = config["scoreboard_endpoint"].as<std::string>();
     scoreboard_secret_code_ = config["scoreboard_secret_code"].as<std::string>();
@@ -519,6 +529,7 @@ private:
         int moderate_uses = 0;
         int green_uses = 0;
         int orange_uses = 0;
+        bool green_is_bottom = false;
         std::array<std::optional<Colour>, kHeightCount> parts;
         for (int height = 0; height < static_cast<int>(kHeightCount); height++) {
           if (std::bernoulli_distribution(0.5)(rng_)) {
@@ -547,6 +558,10 @@ private:
               if (colour == kGreen)
               {
                 green_uses++;
+                if (height == kBottom)
+                {
+                  green_is_bottom = true;
+                }
               }
               if (colour == kOrange)
               {
@@ -563,9 +578,9 @@ private:
         }
         std::cout << std::endl;
 
-        if (non_purple_uses < 1 || non_green_uses < 1)
+        if (non_purple_uses < 1 || (non_green_uses < 1 && green_is_bottom))
         {
-          std::cout << "No hints (or only purple or only green hints)." << std::endl;
+          std::cout << "No hints (or only purple or only green bottom hints)." << std::endl;
           continue;
         }
         if (expensive_uses > 1)
@@ -672,16 +687,7 @@ private:
 
             if (green_uses > 0)
             {
-              verbly::notion notion = database_->notions(
-                (verbly::notion::numOfImages > 1) && solution).first();
-              auto [image, extension] = imagenet_->getImageForNotion(notion.getId(), rng_);
-              if (image.empty())
-              {
-                throw std::runtime_error("Could not find image for green hint.");
-              }
-
-              genpuzzle->attachment_name = std::string("SPOILER_image.") + extension;
-              genpuzzle->attachment_content = std::move(image);
+              generateGreenPuzzle(solution, green_is_bottom, *genpuzzle);
             }
 
             made_puzzle = true;
@@ -790,6 +796,74 @@ private:
     generation_thread.detach();
   }
 
+  void generateGreenPuzzle(const verbly::form& solution, bool is_bottom, puzzle& genpuzzle)
+  {
+    if (is_bottom)
+    {
+      verbly::notion notion = database_->notions(
+        (verbly::notion::numOfImages > 1) && solution).first();
+      auto [image, extension] = imagenet_->getImageForNotion(notion.getId(), rng_);
+      if (image.empty())
+      {
+        throw std::runtime_error("Could not find image for green hint.");
+      }
+
+      genpuzzle.attachment_name = std::string("SPOILER_image.") + extension;
+      genpuzzle.attachment_content = std::move(image);
+    } else {
+      double fontsize = 72;
+      std::string renderWord = solution.getText();
+
+      Magick::Image tester(Magick::Geometry(1, 1), "white");
+      tester.font(fontpath_);
+      tester.fontPointsize(fontsize);
+
+      Magick::TypeMetric metric;
+      tester.fontTypeMetrics(renderWord, &metric);
+
+      double imgHeight = metric.textHeight() * 2;
+      double imgWidth = metric.textWidth() * 2;
+
+      Magick::Image result(Magick::Geometry(imgWidth, imgHeight), "white");
+      result.font(fontpath_);
+      result.fontPointsize(fontsize);
+      result.draw(Magick::DrawableText(metric.textWidth() / 2, metric.textHeight() * 1.25, renderWord));
+      result.charcoal(2, 2);
+
+      Magick::Image lineimage(Magick::Geometry(imgWidth, imgHeight), "transparent");
+      lineimage.strokeColor("black");
+      lineimage.fillColor("black");
+
+      int lines = std::uniform_int_distribution<int>(1, 3)(rng_);
+      for (int i=0; i<lines; i++) {
+        lineimage.strokeWidth(std::uniform_int_distribution<int>(2, 6)(rng_));
+        lineimage.draw(Magick::DrawableLine(
+          std::uniform_int_distribution<int>(imgWidth / 10, imgWidth / 8)(rng_),
+          std::uniform_int_distribution<int>(imgHeight / 10, imgHeight - (imgHeight / 10))(rng_),
+          imgWidth - std::uniform_int_distribution<int>(imgWidth / 10, imgWidth / 8)(rng_),
+          std::uniform_int_distribution<int>(imgHeight / 10, imgHeight - (imgHeight / 10))(rng_)));
+      }
+
+      lineimage.gaussianBlur(std::uniform_int_distribution<int>(2,4)(rng_), std::uniform_int_distribution<int>(1,3)(rng_));
+      result.composite(lineimage, 0, 0, Magick::OverCompositeOp);
+
+      result.swirl(std::uniform_int_distribution<int>(45, 100)(rng_));
+      result.addNoise(Magick::NoiseType::GaussianNoise);
+      result.motionBlur(
+        std::uniform_int_distribution<int>(1,4)(rng_),
+        std::uniform_int_distribution<int>(1,4)(rng_),
+        std::uniform_int_distribution<int>(0, 360)(rng_));
+
+      result.magick("png");
+
+      Magick::Blob outputBlob;
+      result.write(&outputBlob);
+
+      genpuzzle.attachment_name = "image.png";
+      genpuzzle.attachment_content = std::string((const char*) outputBlob.data(), outputBlob.length());
+    }
+  }
+
   std::mt19937& rng_;
   std::unique_ptr<dpp::cluster> bot_;
   std::unique_ptr<verbly::database> database_;
@@ -797,6 +871,7 @@ private:
   std::string scoreboard_endpoint_;
   std::string scoreboard_secret_code_;
   std::unique_ptr<wanderlust> wanderlust_;
+  std::string fontpath_;
 
   std::map<uint64_t, std::string> answer_by_message_;
   std::set<uint64_t> solved_puzzles_;
@@ -810,6 +885,8 @@ private:
 
 int main(int argc, char** argv)
 {
+  Magick::InitializeMagick(nullptr);
+
   std::random_device randomDevice;
   std::mt19937 rng{randomDevice()};
 
