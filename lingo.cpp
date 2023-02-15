@@ -89,6 +89,9 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
                 verbly::filter::comparison::field_does_not_equal,
                 verbly::form::id)))));
         }
+        case kMiddle: {
+          return subfilter;
+        }
         default: break; // Not supported yet.
       }
       break;
@@ -525,6 +528,8 @@ private:
       {kMiddle, kPurple},
       {kMiddle, kGreen},
       {kMiddle, kOrange},
+      {kMiddle, kWhite},
+      {kMiddle, kBlack},
       {kBottom, kWhite},
       {kBottom, kBlack},
       {kBottom, kRed},
@@ -692,7 +697,25 @@ private:
               } else {
                 verbly::filter questionFilter = makeHintFilter(solution, height, *colour, kTowardQuestion);
                 verbly::form questionPart = database_->forms(questionFilter && cleanFilter && wordFilter).first();
-                chosenHints[i] = questionPart.getText();
+
+                if (height == kMiddle && (*colour == kWhite || *colour == kBlack)) {
+                  std::string question = questionPart.getText();
+                  int ceiling = (hints == 1) ? question.size()/3 : question.size()*2/3;
+                  int numToObscure = (ceiling > 0) ? std::uniform_int_distribution<int>(1, ceiling)(rng_) : 1;
+                  std::vector<int> indicies(question.size());
+                  std::iota(indicies.begin(), indicies.end(), 0);
+                  std::shuffle(indicies.begin(), indicies.end(), rng_);
+
+                  for (int i=0; i<numToObscure; i++) {
+                    if (question[indicies[i]] != ' ' && question[indicies[i]] != '-') {
+                      question[indicies[i]] = '?';
+                    }
+                  }
+
+                  chosenHints[i] = question;
+                } else {
+                  chosenHints[i] = questionPart.getText();
+                }
 
                 if (isClueTrivial(height, *colour, questionPart, solution))
                 {
