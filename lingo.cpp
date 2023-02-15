@@ -98,6 +98,12 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
         case kBottom: {
           return (verbly::word::antonyms %= subfilter);
         }
+        case kTop: {
+          return (verbly::pronunciation::antophone %= subfilter);
+        }
+        case kMiddle: {
+          return (verbly::form::antogram %= subfilter);
+        }
         default: break; // Not supported yet.
       }
       break;
@@ -511,6 +517,7 @@ private:
       {kTop, kWhite},
       {kTop, kRed},
       {kTop, kBlue},
+      {kTop, kBlack},
       //{kTop, kYellow},
       {kMiddle, kYellow},
       {kMiddle, kRed},
