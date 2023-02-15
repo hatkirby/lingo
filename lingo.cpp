@@ -456,6 +456,15 @@ private:
     } else if (height == kTop && colour == kPurple)
     {
       return clue.getId() == solution.getId();
+    } else if (height == kMiddle && colour == kRed) {
+      if (clue.getComplexity() == 2 && solution.getComplexity() == 1) {
+        auto words = hatkirby::split<std::vector<std::string>>(clue.getText(), " ");
+        for (const auto& word : words) {
+          if (word == solution.getText()) {
+            return true;
+          }
+        }
+      }
     }
     return false;
   }
