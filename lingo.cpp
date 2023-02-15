@@ -428,6 +428,15 @@ public:
     scoreboard_endpoint_ = config["scoreboard_endpoint"].as<std::string>();
     scoreboard_secret_code_ = config["scoreboard_secret_code"].as<std::string>();
 
+    std::string profaneFilename = config["profane"].as<std::string>();
+    {
+      std::ifstream profaneFile(profaneFilename);
+      std::string line;
+      while (std::getline(profaneFile, line)) {
+        profane_.insert(line);
+      }
+    }
+
     for (;;)
     {
       sendPuzzle(channel);
@@ -477,6 +486,20 @@ private:
       }
     }
     return false;
+  }
+
+  bool isProfane(const verbly::form& clue) const {
+    if (clue.getComplexity() == 1) {
+      return profane_.count(clue.getText());
+    } else {
+      auto words = hatkirby::split<std::vector<std::string>>(clue.getText(), " ");
+      for (const std::string& word : words) {
+        if (profane_.count(word)) {
+          return true;
+        }
+      }
+      return false;
+    }
   }
 
   void generatePuzzle()
@@ -637,6 +660,11 @@ private:
 
         std::cout << "Solution decided: " << solution.getText() << std::endl;
 
+        if (isProfane(solution)) {
+          std::cout << "Solution is profane" << std::endl;
+          continue;
+        }
+
         std::array<std::optional<std::string>, kHeightCount> chosenHints;
 
         bool made_puzzle = false;
@@ -645,6 +673,7 @@ private:
           verbly::filter admissible = cleanFilter && (verbly::form::proper == false) && (verbly::form::length == static_cast<int>(solution.getText().size()));
           std::ostringstream msg_stream;
           bool trivial = false;
+          bool profane = false;
           for (int i=0; i<static_cast<int>(kHeightCount); i++) {
             Height height = static_cast<Height>(i);
             std::optional<Colour>& colour = parts[i];
@@ -663,6 +692,9 @@ private:
                   trivial = true;
                   break;
                 }
+                if (isProfane(questionPart)) {
+                  profane = true;
+                }
 
                 admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
               }
@@ -672,6 +704,11 @@ private:
           if (trivial)
           {
             std::cout << "Puzzle is trivial." << std::endl;
+            continue;
+          }
+          if (profane)
+          {
+            std::cout << "Puzzle is profane." << std::endl;
             continue;
           }
 
@@ -933,6 +970,7 @@ private:
   std::string scoreboard_secret_code_;
   std::unique_ptr<wanderlust> wanderlust_;
   std::string fontpath_;
+  std::set<std::string> profane_;
 
   std::map<uint64_t, std::string> answer_by_message_;
   std::set<uint64_t> solved_puzzles_;
