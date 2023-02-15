@@ -197,13 +197,7 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
                   verbly::form::id))))));
         }
         case kTop: {
-          return (verbly::pronunciation::holophones %=
-            verbly::filter("toppurp", false,
-              (verbly::pronunciation::numOfSyllables >= 2 && (verbly::pronunciation::merophones %=
-                (subfilter && verbly::filter(
-                  verbly::pronunciation::id,
-                  verbly::filter::comparison::field_does_not_equal,
-                  verbly::pronunciation::id))))));
+          return (verbly::pronunciation::rhymes %= subfilter);
         }
         default: break; // Not supported yet.
       }
