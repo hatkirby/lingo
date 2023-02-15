@@ -465,6 +465,16 @@ private:
           }
         }
       }
+    } else if (height == kMiddle && colour == kYellow) {
+      if (clue.getComplexity() == solution.getComplexity()) {
+        auto clueWords = hatkirby::split<std::vector<std::string>>(clue.getText(), " ");
+        auto solutionWords = hatkirby::split<std::vector<std::string>>(solution.getText(), " ");
+        std::sort(clueWords.begin(), clueWords.end());
+        std::sort(solutionWords.begin(), solutionWords.end());
+        if (clueWords == solutionWords) {
+          return true;
+        }
+      }
     }
     return false;
   }
