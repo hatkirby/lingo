@@ -430,6 +430,8 @@ public:
     dpp::snowflake channel(config["discord_channel"].as<uint64_t>());
 
     database_ = std::make_unique<verbly::database>(config["verbly_datafile"].as<std::string>());
+    database_->setTimeout(60 * 2);
+
     imagenet_ = std::make_unique<imagenet>(config["imagenet"].as<std::string>());
     wanderlust_ = std::make_unique<wanderlust>(config["wanderlust"].as<std::string>());
     fontpath_ = config["font"].as<std::string>();
@@ -521,7 +523,7 @@ private:
       {kTop, kRed},
       {kTop, kBlue},
       {kTop, kBlack},
-      //{kTop, kYellow},
+      {kTop, kYellow},
       {kMiddle, kYellow},
       {kMiddle, kRed},
       {kMiddle, kBlue},
