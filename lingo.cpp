@@ -18,6 +18,7 @@
 #include <map>
 #include <array>
 #include <Magick++.h>
+#include <cctype>
 #include "imagenet.h"
 
 #define ENABLE_BOT
@@ -72,6 +73,10 @@ enum FilterDirection {
   kTowardSolution,
   kTowardQuestion
 };
+
+bool isDigitWrapper(unsigned char ch) {
+  return std::isdigit(ch);
+}
 
 verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour colour, FilterDirection filter_direction)
 {
@@ -492,6 +497,22 @@ private:
         std::sort(clueWords.begin(), clueWords.end());
         std::sort(solutionWords.begin(), solutionWords.end());
         if (clueWords == solutionWords) {
+          return true;
+        }
+      }
+    } else if (height == kTop && colour == kYellow) {
+      std::set<std::string> hint_stressless;
+      for (const verbly::pronunciation& pronunciation : clue.getPronunciations()) {
+        std::string stressed = hatkirby::implode(pronunciation.getPhonemes(), " ");
+        std::string stressless;
+        std::remove_copy_if(stressed.begin(), stressed.end(), std::back_inserter(stressless), &isDigitWrapper);
+        hint_stressless.insert(stressless);
+      }
+      for (const verbly::pronunciation& pronunciation : solution.getPronunciations()) {
+        std::string stressed = hatkirby::implode(pronunciation.getPhonemes(), " ");
+        std::string stressless;
+        std::remove_copy_if(stressed.begin(), stressed.end(), std::back_inserter(stressless), &isDigitWrapper);
+        if (hint_stressless.count(stressless)) {
           return true;
         }
       }
