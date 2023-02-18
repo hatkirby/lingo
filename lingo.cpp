@@ -687,6 +687,16 @@ private:
           continue;
         }
 
+        if (parts[kMiddle] == kWhite
+            || parts[kMiddle] == kGreen
+            || parts[kTop] == kWhite
+            || parts[kMiddle] == kBlack) {
+          if (std::bernoulli_distribution(0.5)(rng_)) {
+            std::cout << "Easy clue, rerolling..." << std::endl;
+            continue;
+          }
+        }
+
         std::string orange_clue;
         std::string orange_solution;
         if (orange_uses > 0)
