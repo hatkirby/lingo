@@ -465,6 +465,33 @@ private:
 
   bool isClueTrivial(Height height, Colour colour, const verbly::form& clue, const verbly::form& solution) const
   {
+    if (height == kMiddle && colour == kWhite) {
+      // Triviality is checked elsewhere.
+      return false;
+    }
+
+    if (clue.getText() == solution.getText()) {
+      return true;
+    }
+
+    if (clue.getComplexity() > 1 && solution.getComplexity() == 1) {
+      auto words = hatkirby::split<std::vector<std::string>>(clue.getText(), " ");
+      for (const auto& word : words) {
+        if (word == solution.getText()) {
+          return true;
+        }
+      }
+    }
+
+    if (clue.getComplexity() == 1 && solution.getComplexity() > 1) {
+      auto words = hatkirby::split<std::vector<std::string>>(solution.getText(), " ");
+      for (const auto& word : words) {
+        if (word == clue.getText()) {
+          return true;
+        }
+      }
+    }
+
     if (height == kTop && colour == kWhite)
     {
       return !database_->forms((verbly::filter)clue && (verbly::word::synonyms %= solution)).all().empty();
@@ -481,17 +508,8 @@ private:
     } else if (height == kTop && colour == kPurple)
     {
       return clue.getId() == solution.getId();
-    } else if (height == kMiddle && colour == kRed) {
-      if (clue.getComplexity() == 2 && solution.getComplexity() == 1) {
-        auto words = hatkirby::split<std::vector<std::string>>(clue.getText(), " ");
-        for (const auto& word : words) {
-          if (word == solution.getText()) {
-            return true;
-          }
-        }
-      }
     } else if (height == kMiddle && colour == kYellow) {
-      if (clue.getComplexity() == solution.getComplexity()) {
+      if (clue.getComplexity() > 1 && clue.getComplexity() == solution.getComplexity()) {
         auto clueWords = hatkirby::split<std::vector<std::string>>(clue.getText(), " ");
         auto solutionWords = hatkirby::split<std::vector<std::string>>(solution.getText(), " ");
         std::sort(clueWords.begin(), clueWords.end());
@@ -709,6 +727,7 @@ private:
           std::ostringstream msg_stream;
           bool trivial = false;
           bool profane = false;
+          std::string bad_hint;
           for (int i=0; i<static_cast<int>(kHeightCount); i++) {
             Height height = static_cast<Height>(i);
             std::optional<Colour>& colour = parts[i];
@@ -736,6 +755,12 @@ private:
                   }
 
                   chosenHints[i] = question;
+
+                  if (chosenHints[i] == questionPart.getText()) {
+                    trivial = true;
+                    bad_hint = questionPart.getText();
+                    break;
+                  }
                 } else {
                   chosenHints[i] = questionPart.getText();
                 }
@@ -743,10 +768,13 @@ private:
                 if (isClueTrivial(height, *colour, questionPart, solution))
                 {
                   trivial = true;
+                  bad_hint = questionPart.getText();
                   break;
                 }
                 if (isProfane(questionPart)) {
                   profane = true;
+                  bad_hint = questionPart.getText();
+                  break;
                 }
 
                 admissible &= makeHintFilter(questionPart, height, *colour, kTowardSolution);
@@ -756,12 +784,12 @@ private:
 
           if (trivial)
           {
-            std::cout << "Puzzle is trivial." << std::endl;
+            std::cout << "Puzzle is trivial (" << bad_hint << ")." << std::endl;
             continue;
           }
           if (profane)
           {
-            std::cout << "Puzzle is profane." << std::endl;
+            std::cout << "Puzzle is profane (" << bad_hint << ")." << std::endl;
             continue;
           }
 
@@ -848,8 +876,7 @@ private:
         std::cout << ex.what() << std::endl;
       }
 
-      std::cout << "Waiting five seconds then trying again..." << std::endl;
-      std::this_thread::sleep_for(std::chrono::seconds(5));
+      std::cout << "Trying again..." << std::endl;
     }
 
     // generatePuzzle is only called when there is no cached puzzle and there
