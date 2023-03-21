@@ -40,6 +40,8 @@ enum Colour {
   kYellow,
   kGreen,
   kOrange,
+  kMagenta,
+  kLime,
   kColourCount
 };
 
@@ -53,6 +55,8 @@ const std::string COLOUR_EMOJIS[kColourCount] = {
   "🟨",
   "🟩",
   "🟧",
+  "MAGENTA",
+  "LIME",
 };
 
 const std::string NONE_EMOTE = "<:xx:1047267830535557180>";
@@ -67,6 +71,8 @@ const std::string COLOUR_EMOTES[kColourCount] = {
   "<:yw:1047262152781737986>",
   "<:gn:1047262141914304633>",
   "<:or:1047262144934182983>",
+  "<:mg:1087531573580136578>",
+  "<:lm:1087531573580136578>",
 };
 
 enum FilterDirection {
@@ -234,6 +240,32 @@ verbly::filter makeHintFilter(verbly::filter subfilter, Height height, Colour co
         default: break; // Not supported yet.
       }
       break;
+    }
+    case kLime: {
+      switch (height) {
+        case kBottom: {
+          if (filter_direction == kTowardSolution)
+          {
+            return (verbly::notion::hyponyms %= subfilter);
+          } else {
+            return (verbly::notion::hypernyms %= subfilter);
+          }
+        }
+        default: break; // Not supported yet.
+      }
+    }
+    case kMagenta: {
+      switch (height) {
+        case kBottom: {
+          if (filter_direction == kTowardSolution)
+          {
+            return (verbly::notion::hypernyms %= subfilter);
+          } else {
+            return (verbly::notion::hyponyms %= subfilter);
+          }
+        }
+        default: break; // Not supported yet.
+      }
     }
     case kGreen: {
       if (filter_direction == kTowardSolution)
@@ -576,6 +608,8 @@ private:
       {kBottom, kRed},
       {kBottom, kBlue},
       {kBottom, kGreen},
+      {kBottom, kMagenta},
+      {kBottom, kLime},
     };
 
     std::set<std::tuple<Height, Colour>> expensive_hints = {
