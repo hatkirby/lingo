@@ -1,0 +1,24 @@
+!!! 5
+%html
+  %head
+    %title LINGO Bot Scoreboard
+    %link{ rel: "stylesheet", href: "style.css", type: "text/css"}
+  %body
+    #header
+      %img{ src: "header.png" }
+    #content
+      %h2 Bot Puzzles Scoreboard
+      %table#scores
+        %tr.scores-header
+          %th
+          %th{colspan: 2} Player
+          %th Score
+        - row_cycle = ["even", "odd"].cycle
+        - @scores.each_with_index do |score,index|
+          %tr{class: row_cycle.next}
+            %td.score-index #{index+1}.
+            %td.score-pfp
+              - if !score.avatar_url.nil?
+                %img{ src: score.avatar_url }
+            %td.score-name= score.username
+            %td.score-value= score.score

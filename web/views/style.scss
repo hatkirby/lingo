@@ -1,0 +1,55 @@
+body {
+  background-color: black;
+  color: white;
+  font-family: sans-serif;
+}
+
+#header {
+  width: 100%;
+
+  img {
+    max-width: 80%;
+    margin: 0 auto;
+    display: block;
+  }
+}
+
+h2 {
+  text-align: center;
+}
+
+#scores {
+  margin: 0 auto;
+  border-spacing: 0px;
+  tr {
+    &.even {
+      background-color: gray;
+    }
+    &.odd {
+      background-color: purple;
+    }
+    th {
+      text-align: left;
+      padding-left: 0.5em;
+      padding-bottom: 0.5em;
+    }
+    td {
+      padding-right: 1em;
+      padding-top: 0.5em;
+      padding-bottom: 0.5em;
+      border-collapse: collapse;
+      &:first-child {
+        padding-left: 1em;
+      }
+      img {
+        width: 2em;
+      }
+      &.score-pfp {
+        width: 2em;
+      }
+      &.score-value {
+        text-align: center;
+      }
+    }
+  }
+}

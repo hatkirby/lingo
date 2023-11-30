@@ -1,0 +1,48 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    bigdecimal (3.1.4)
+    ffi (1.16.3)
+    haml (6.2.3)
+      temple (>= 0.8.2)
+      thor
+      tilt
+    mustermann (3.0.0)
+      ruby2_keywords (~> 0.0.1)
+    nio4r (2.6.1)
+    puma (6.4.0)
+      nio4r (~> 2.0)
+    rack (2.2.8)
+    rack-cache (1.14.0)
+      rack (>= 0.4)
+    rack-protection (3.1.0)
+      rack (~> 2.2, >= 2.2.4)
+    ruby2_keywords (0.0.5)
+    sassc (2.4.0)
+      ffi (~> 1.9)
+    sequel (5.74.0)
+      bigdecimal
+    sinatra (3.1.0)
+      mustermann (~> 3.0)
+      rack (~> 2.2, >= 2.2.4)
+      rack-protection (= 3.1.0)
+      tilt (~> 2.0)
+    sqlite3 (1.6.9-x86_64-darwin)
+    temple (0.10.3)
+    thor (1.3.0)
+    tilt (2.3.0)
+
+PLATFORMS
+  x86_64-darwin-22
+
+DEPENDENCIES
+  haml
+  puma
+  rack-cache
+  sassc
+  sequel
+  sinatra
+  sqlite3
+
+BUNDLED WITH
+   2.4.21
